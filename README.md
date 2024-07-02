@@ -21,6 +21,7 @@ A repository to hold interpreters for the command sets of various laserdisc play
 
 Create a file called mull.yml that contains the following:
 
+```
 mutators:
   - cxx_arithmetic
   - cxx_comparison
@@ -28,6 +29,7 @@ excludePaths:
   - .*gtest.*
   - .*gmock.*
   - .*tests.*
+```
 
 `CC=clang-17 CXX=clang++-17 cmake -DCMAKE_C_FLAGS="-O0 -fpass-plugin=/usr/lib/mull-ir-frontend-17 -g -grecord-command-line" -DCMAKE_CXX_FLAGS="-O0 -fpass-plugin=/usr/lib/mull-ir-frontend-17 -g -grecord-command-line" -DBUILD_TESTING=ON ..`
 
