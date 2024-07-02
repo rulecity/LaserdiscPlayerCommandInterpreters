@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
+
 project(ldp_in)
 
 # define library version
@@ -16,14 +17,17 @@ set(lib_dest "${main_lib_dest}/${CMAKE_BUILD_TYPE}")
 # don't look back
 set(CMAKE_CXX_STANDARD 17)
 
-# so that gmock doesn't get a different runtime than the rest of the system when using Visual Studio
-#set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-
-option(INSTALL_GTEST "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)" OFF)
-add_subdirectory("thirdparty/googletest-1.14.0")
+# cross compiling doesn't work so well with the tests, so make them optional
+if (BUILD_TESTING)
+    option(INSTALL_GTEST "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)" OFF)
+    add_subdirectory("thirdparty/googletest-1.14.0")
+    add_subdirectory("tests")
+else()
+    # if not building the tests, then we also want to skip the compile test since we will be using a cross-compiler
+    set(CMAKE_TRY_COMPILE_TARGET_TYPE STATIC_LIBRARY)
+endif()
 
 add_subdirectory("src")
-add_subdirectory("tests")
 
 configure_file(ldp_in-config-version.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/ldp_in-config-version.cmake @ONLY)
 
