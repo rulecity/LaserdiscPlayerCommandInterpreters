@@ -10,6 +10,8 @@ set(TEST_LDP_IN_SRCS
 		vp932_tests.cpp
         stdafx.h
         mocks.h
+		ld700_tests.cpp
+		ld700_test_interface.h
 )
 
 add_executable(test_ldp_in ${TEST_LDP_IN_SRCS})
