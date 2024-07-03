@@ -11,6 +11,7 @@ set(LDP_IN_PUBLIC_INCLUDE
 		${header_path}/pr8210-interpreter.h
 		${header_path}/vip9500sg-interpreter.h
 		${header_path}/vp931-interpreter.h
+		${header_path}/ld700-interpreter.h
 		)
 
 # source files to be built
@@ -22,7 +23,8 @@ set(LDP_IN_SRCS
 		vip9500sg-interpreter.c
 		vp931-interpreter.c
 		vp932-interpreter.c
-        )
+		ld700-interpreter.c
+)
 
 add_library(ldp_in ${LDP_IN_PUBLIC_INCLUDE} ${LDP_IN_SRCS} )
 
