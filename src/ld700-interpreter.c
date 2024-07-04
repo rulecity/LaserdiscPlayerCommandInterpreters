@@ -14,11 +14,23 @@ void (*g_ld700i_on_ext_ack_changed)(LD700_BOOL bActive) = 0;
 
 /////////////////////////
 
+// so we know what to do when we get an ENTER command
+typedef enum
+{
+	LD700I_CMD_PREFIX,
+	LD700I_CMD_PREFIX_XOR,
+	LD700I_CMD,
+	LD700I_CMD_XOR,
+} LD700CmdState_t;
+
+LD700CmdState_t g_ld700i_cmd_state = LD700I_CMD_PREFIX;
+
 uint32_t g_ld700i_u32Frame = 0;
 uint8_t g_ld700i_u8FrameIdx = 0;
 uint8_t g_ld700i_u8Audio[2] = { 1, 1 };	// audio starts out enabled
 uint8_t g_ld700i_u8VsyncCounter = 0;
 LD700_BOOL g_ld700i_bExtAckActive = LD700_FALSE;
+uint8_t g_ld700i_u8QueuedCmd = 0;
 
 void ld700i_reset()
 {
@@ -27,7 +39,9 @@ void ld700i_reset()
 	g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;	// default to audio being enabled
 	g_ld700i_u8VsyncCounter = 0;
 	g_ld700i_bExtAckActive = LD700_FALSE;
+	g_ld700i_cmd_state = LD700I_CMD_PREFIX;
 	g_ld700i_on_ext_ack_changed(g_ld700i_bExtAckActive);
+	g_ld700i_u8QueuedCmd = 0;
 }
 
 void ld700i_add_digit(uint8_t u8Digit)
@@ -46,9 +60,39 @@ void ld700i_add_digit(uint8_t u8Digit)
 	}
 }
 
+void ld700i_cmd_error(uint8_t u8Cmd)
+{
+	g_ld700i_error(LD700_ERR_UNKNOWN_CMD_BYTE, u8Cmd);
+	g_ld700i_cmd_state = LD700I_CMD_PREFIX;
+}
+
 void ld700i_write(uint8_t u8Cmd)
 {
-	switch (u8Cmd)
+	switch (g_ld700i_cmd_state)
+	{
+	case LD700I_CMD_PREFIX:
+		if (u8Cmd == 0xA8) g_ld700i_cmd_state++;
+		else ld700i_cmd_error(u8Cmd);
+		return;
+	case LD700I_CMD_PREFIX_XOR:
+		if (u8Cmd == 0x57) g_ld700i_cmd_state++;
+		else ld700i_cmd_error(u8Cmd);
+		return;
+	case LD700I_CMD:
+		g_ld700i_u8QueuedCmd = u8Cmd;
+		g_ld700i_cmd_state++;
+		return;
+	default:	// LD700I_CMD_XOR
+		g_ld700i_cmd_state = LD700I_CMD_PREFIX;
+		if (u8Cmd != (g_ld700i_u8QueuedCmd ^ 0xFF))
+		{
+			ld700i_cmd_error(u8Cmd);
+			return;
+		}
+		break;
+	}
+
+	switch (g_ld700i_u8QueuedCmd)
 	{
 	default:	// unknown
 		g_ld700i_error(LD700_ERR_UNKNOWN_CMD_BYTE, u8Cmd);
