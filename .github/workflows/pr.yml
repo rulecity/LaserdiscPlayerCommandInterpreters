@@ -28,5 +28,5 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: /usr/local/bin/mull-runner-17 -ld-search-path /lib/x86_64-linux-gnu tests/test_ldp_in
+      run: /usr/local/bin/mull-runner-17 --ld-search-path /lib/x86_64-linux-gnu --mutation-score-threshold=80 tests/test_ldp_in
 
