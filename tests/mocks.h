@@ -17,6 +17,7 @@
 #include "pr7820_test_interface.h"
 #include "vip9500sg_test_interface.h"
 #include "pr8210_test_interface.h"
+#include "ld700_test_interface.h"
 
 class MockVP931Test : public IVP931Test
 {
@@ -196,6 +197,20 @@ public:
 	MOCK_METHOD0(GetVBILine18, uint32_t());
 
 	MOCK_METHOD2(OnError, void(VIP9500SGErrCode_t, uint8_t));
+};
+
+class MockLD700Test : public ILD700Test
+{
+public:
+	MOCK_METHOD0(Play, void());
+
+	MOCK_METHOD0(Pause, void());
+
+	MOCK_METHOD1(BeginSearch, void(uint32_t));
+
+	MOCK_METHOD1(OnExtAckChanged, void(LD700_BOOL));
+
+	MOCK_METHOD2(OnError, void(LD700ErrCode_t, uint8_t));
 };
 
 #endif //LDP_IN_MOCKS_H
