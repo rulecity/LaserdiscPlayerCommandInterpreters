@@ -39,10 +39,14 @@ void test_ld700_playing()
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
 	ld700i_reset();
-	ld700i_write(0xA8);	// send prefix
-	ld700i_write(0x57);	// send prefix
-	ld700i_write(0x17);	// send play
 
+	// prefix
+	ld700i_write(0xA8);
+	ld700i_write(0x57);
+
+	// play
+	ld700i_write(0x17);
+	ld700i_write(0xE8);
 }
 
 TEST_CASE(ld700_playing)
