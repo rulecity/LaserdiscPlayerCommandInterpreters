@@ -29,7 +29,7 @@ typedef enum
 {
    LD700_ERROR, LD700_SEARCHING, LD700_STOPPED, LD700_PLAYING, LD700_PAUSED, LD700_SPINNING_UP, LD700_TRAY_EJECTED
 }
-LDP700Status_t;
+LD700Status_t;
 
 // CALLBACKS
 
@@ -55,7 +55,7 @@ extern void (*g_ld700i_begin_search)(uint32_t uFrameNumber);
 extern void (*g_ld700i_change_audio)(uint8_t uChannel, uint8_t uEnable);
 
 // returns current status of laserdisc player (playing, paused, etc..)
-extern LDP700Status_t (*g_ld700i_get_status)();
+extern LD700Status_t (*g_ld700i_get_status)();
 
 // will get called every time the EXT ACK line changes. This line is active low, so bActive=true means the line has gone low.
 extern void (*g_ld700i_on_ext_ack_changed)(LD700_BOOL bActive);

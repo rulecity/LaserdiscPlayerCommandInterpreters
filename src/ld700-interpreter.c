@@ -9,7 +9,7 @@ void (*g_ld700i_step)(int8_t i8TracksToStep) = 0;
 void (*g_ld700i_begin_search)(uint32_t uFrameNumber) = 0;
 void (*g_ld700i_change_audio)(uint8_t uChannel, uint8_t uEnable) = 0;
 void (*g_ld700i_error)(LD700ErrCode_t code, uint8_t u8Val) = 0;
-LDP700Status_t (*g_ld700i_get_status)() = 0;
+LD700Status_t (*g_ld700i_get_status)() = 0;
 void (*g_ld700i_on_ext_ack_changed)(LD700_BOOL bActive) = 0;
 
 /////////////////////////
@@ -110,7 +110,21 @@ void ld700i_write(uint8_t u8Cmd)
 		ld700i_add_digit(u8Cmd);
 		break;
 	case 0x16:	// reject
-		// TODO
+		{
+			LD700Status_t status = g_ld700i_get_status();
+			if ((status == LD700_PLAYING) || (status == LD700_PAUSED))
+			{
+				g_ld700i_stop();
+			}
+			else if (status == LD700_STOPPED)
+			{
+				g_ld700i_eject();
+			}
+			else
+			{
+				g_ld700i_error(LD700_ERR_UNHANDLED_SITUATION, 0);
+			}
+		}
 		break;
 	case 0x17:	// play
 		g_ld700i_play();
