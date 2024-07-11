@@ -206,7 +206,13 @@ public:
 
 	MOCK_METHOD0(Pause, void());
 
+	MOCK_METHOD0(Stop, void());
+
+	MOCK_METHOD0(Eject, void());
+
 	MOCK_METHOD1(BeginSearch, void(uint32_t));
+
+	MOCK_METHOD0(GetStatus, LD700Status_t());
 
 	MOCK_METHOD1(OnExtAckChanged, void(LD700_BOOL));
 
