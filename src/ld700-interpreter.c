@@ -14,7 +14,7 @@ void (*g_ld700i_on_ext_ack_changed)(LD700_BOOL bActive) = 0;
 
 /////////////////////////
 
-// so we know what to do when we get an ENTER command
+// so we can decode incoming commands properly
 typedef enum
 {
 	LD700I_CMD_PREFIX,
@@ -24,6 +24,15 @@ typedef enum
 } LD700CmdState_t;
 
 LD700CmdState_t g_ld700i_cmd_state = LD700I_CMD_PREFIX;
+
+// so we know what to do when we get an ENTER command
+typedef enum
+{
+	LD700I_STATE_NORMAL,
+	LD700I_STATE_FRAME,	// in the middle of receiving a frame
+} LD700State_t;
+
+LD700State_t g_ld700i_state = LD700I_STATE_NORMAL;
 
 uint32_t g_ld700i_u32Frame = 0;
 uint8_t g_ld700i_u8FrameIdx = 0;
@@ -42,6 +51,7 @@ void ld700i_reset()
 	g_ld700i_cmd_state = LD700I_CMD_PREFIX;
 	g_ld700i_on_ext_ack_changed(g_ld700i_bExtAckActive);
 	g_ld700i_u8QueuedCmd = 0;
+	g_ld700i_state = LD700I_STATE_NORMAL;
 }
 
 void ld700i_add_digit(uint8_t u8Digit)
@@ -95,7 +105,7 @@ void ld700i_write(uint8_t u8Cmd)
 	switch (g_ld700i_u8QueuedCmd)
 	{
 	default:	// unknown
-		g_ld700i_error(LD700_ERR_UNKNOWN_CMD_BYTE, u8Cmd);
+		g_ld700i_error(LD700_ERR_UNKNOWN_CMD_BYTE, g_ld700i_u8QueuedCmd);
 		break;
 	case 0x0:	// 0
 	case 0x1:
@@ -107,7 +117,7 @@ void ld700i_write(uint8_t u8Cmd)
 	case 0x7:
 	case 0x8:
 	case 0x9:	// 9
-		ld700i_add_digit(u8Cmd);
+		ld700i_add_digit(g_ld700i_u8QueuedCmd);
 		break;
 	case 0x16:	// reject
 		{
@@ -132,16 +142,17 @@ void ld700i_write(uint8_t u8Cmd)
 	case 0x18:	// pause
 		g_ld700i_pause();
 		break;
-	// TODO add search command
-	case 0xB:	// search
-		if (g_ld700i_u8FrameIdx != 0)
-		{
-			g_ld700i_begin_search(g_ld700i_u32Frame);
-//			g_ld700i_u8VsyncCounter = 0;
-		}
+	case 0x41:	// prepare to enter frame number
+		g_ld700i_state = LD700I_STATE_FRAME;
+		break;
+	case 0x42:	// begin search
+		g_ld700i_state = LD700I_STATE_NORMAL;
+		g_ld700i_begin_search(g_ld700i_u32Frame);
+		g_ld700i_u8VsyncCounter = 0;
 		g_ld700i_u32Frame = 0;
 		g_ld700i_u8FrameIdx = 0;
 		break;
+		/*
 	case 0xD:	// toggle right audio
 		g_ld700i_u8Audio[1] ^= 1;
 		g_ld700i_change_audio(1, g_ld700i_u8Audio[1]);
@@ -150,14 +161,7 @@ void ld700i_write(uint8_t u8Cmd)
 		g_ld700i_u8Audio[0] ^= 1;
 		g_ld700i_change_audio(0, g_ld700i_u8Audio[0]);
 		break;
-	case 0xF:	// reject
-		// ignore
-		break;
-	case 0x10:	// scan fwd
-	case 0x11:	// scan rev
-	case 0xFF:	// placeholder
-		g_ld700i_error(LD700_ERR_UNSUPPORTED_CMD_BYTE, u8Cmd);
-		break;
+		 */
 	}
 }
 

@@ -34,6 +34,16 @@ ILD700Test *ld700_test_wrapper::m_pInstance = 0;
 
 /////////////////////////////////////////////////////////////////
 
+void ld700_write_helper(uint8_t u8Cmd)
+{
+	// prefix
+	ld700i_write(0xA8);
+	ld700i_write(0xA8 ^ 0xFF);
+
+	ld700i_write(u8Cmd);
+	ld700i_write(u8Cmd ^ 0xFF);
+}
+
 void test_ld700_reject()
 {
 	MockLD700Test mockLD700;
@@ -126,4 +136,38 @@ void test_ld700_pause()
 TEST_CASE(ld700_pause)
 {
 	test_ld700_pause();
+}
+
+void test_ld700_search()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	{
+		InSequence dummy;
+
+		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+		EXPECT_CALL(mockLD700, BeginSearch(12345));
+	}
+
+	ld700i_reset();
+
+	// frame/time
+	ld700_write_helper(0x41);
+
+	// frame 12345
+	ld700_write_helper(1);
+	ld700_write_helper(2);
+	ld700_write_helper(3);
+	ld700_write_helper(4);
+	ld700_write_helper(5);
+
+	// begin search
+	ld700_write_helper(0x42);
+}
+
+TEST_CASE(ld700_search)
+{
+	test_ld700_search();
 }
