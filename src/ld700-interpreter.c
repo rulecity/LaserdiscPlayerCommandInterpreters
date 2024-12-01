@@ -40,6 +40,7 @@ uint8_t g_ld700i_u8Audio[2] = { 1, 1 };	// audio starts out enabled
 uint8_t g_ld700i_u8VsyncCounter = 0;
 LD700_BOOL g_ld700i_bExtAckActive = LD700_FALSE;
 uint8_t g_ld700i_u8QueuedCmd = 0;
+uint8_t g_ld700i_u8LastCmd = 0xFF;	// to drop rapidly repeated commands
 
 void ld700i_reset()
 {
@@ -51,6 +52,7 @@ void ld700i_reset()
 	g_ld700i_cmd_state = LD700I_CMD_PREFIX;
 	g_ld700i_on_ext_ack_changed(g_ld700i_bExtAckActive);
 //	g_ld700i_u8QueuedCmd = 0;	// apparently is not needed
+	g_ld700i_u8LastCmd = 0xFF;
 //	g_ld700i_state = LD700I_STATE_NORMAL;
 }
 
@@ -100,6 +102,13 @@ void ld700i_write(uint8_t u8Cmd)
 			return;
 		}
 		break;
+	}
+
+	// rapidly repeated commands are dropped
+	// (a human pressing keys on a remote control will cause commands to rapidly repeat)
+	if (g_ld700i_u8QueuedCmd == g_ld700i_u8LastCmd)
+	{
+		return;
 	}
 
 	switch (g_ld700i_u8QueuedCmd)
@@ -163,6 +172,8 @@ void ld700i_write(uint8_t u8Cmd)
 		break;
 		 */
 	}
+
+	g_ld700i_u8LastCmd = g_ld700i_u8QueuedCmd;
 }
 
 void ld700i_on_vblank()
