@@ -12,7 +12,9 @@ env:
 
 jobs:
   pr_gate:
-    runs-on: self-hosted
+    runs-on:
+      group: DexterBuilderGroup
+      labels: self-hosted
 
     steps:
     - uses: actions/checkout@v4
