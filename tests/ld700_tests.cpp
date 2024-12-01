@@ -75,6 +75,14 @@ TEST_CASE(ld700_cmd_pattern1)
 	test_ld700_cmd_pattern1();
 }
 
+void ld700_cmd_wait_to_repeat()
+{
+	// so that command can be repeated without being dropped
+	ld700i_on_vblank();
+	ld700i_on_vblank();
+	ld700i_on_vblank();
+}
+
 void test_ld700_reject()
 {
 	MockLD700Test mockLD700;
@@ -95,21 +103,11 @@ void test_ld700_reject()
 
 	ld700i_reset();
 
-	// prefix
-	ld700i_write(0xA8);
-	ld700i_write(0xA8 ^ 0xFF);
+	ld700_write_helper(0x16);	// reject (to stop playing)
 
-	// reject (to stop playing)
-	ld700i_write(0x16);
-	ld700i_write(0x16 ^ 0xFF);
+	ld700_cmd_wait_to_repeat();
 
-	// prefix
-	ld700i_write(0xA8);
-	ld700i_write(0xA8 ^ 0xFF);
-
-	// reject (to eject)
-	ld700i_write(0x16);
-	ld700i_write(0x16 ^ 0xFF);
+	ld700_write_helper(0x16);	// reject (to eject)
 }
 
 TEST_CASE(ld700_reject)
@@ -226,3 +224,31 @@ TEST_CASE(ld700_too_many_digits)
 {
 	test_ld700_too_many_digits();
 }
+
+//////////////////////////////////////
+
+void test_ld700_repeated_command()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	EXPECT_CALL(mockLD700, Play()).Times(1);
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+
+	ld700i_reset();
+
+	ld700_write_helper(0x17);
+
+	// the rest of these should be ignored because they repeat without an acceptable interval in between
+	ld700_write_helper(0x17);
+	ld700_write_helper(0x17);
+	ld700_write_helper(0x17);
+}
+
+TEST_CASE(ld700_repeated_command)
+{
+	test_ld700_repeated_command();
+}
+
