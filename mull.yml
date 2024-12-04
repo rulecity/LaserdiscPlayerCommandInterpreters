@@ -3,6 +3,5 @@ mutators:
 excludePaths: # support regex
  - gtest
  - gmock
-timeout: # milliseconds
- - 10000 # 10 seconds
+timeout: 10000 # 10 seconds
 quiet: false # enables additional logging
