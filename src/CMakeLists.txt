@@ -4,6 +4,7 @@ set(header_path "${CMAKE_SOURCE_DIR}/include/ldp-in")
 
 # headers to be installed
 set(LDP_IN_PUBLIC_INCLUDE
+		${header_path}/datatypes.h
 		${header_path}/vp932-interpreter.h
 		${header_path}/ldp1000-interpreter.h
 		${header_path}/ldv1000-interpreter.h
