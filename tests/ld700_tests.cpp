@@ -44,6 +44,39 @@ void ld700_write_helper(uint8_t u8Cmd)
 	ld700i_write(u8Cmd ^ 0xFF);
 }
 
+void test_ld700_cmd_pattern1()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(3);
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(3);
+
+	ld700i_reset();
+
+	// prefix
+	ld700i_write(0xA8 + 1);	// error
+
+	ld700i_reset();
+
+	ld700i_write(0xA8 + 1);
+	ld700i_write(0xA8 ^ 0xFF + 1);	// error
+
+	ld700i_reset();
+
+	ld700i_write(0xA8);
+	ld700i_write(0xA8 ^ 0xFF);
+
+	ld700i_write(0);	// arbitrary
+	ld700i_write(0);	// error
+}
+
+TEST_CASE(ld700_cmd_pattern1)
+{
+	test_ld700_cmd_pattern1();
+}
+
 void test_ld700_reject()
 {
 	MockLD700Test mockLD700;
