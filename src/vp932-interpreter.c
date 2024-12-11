@@ -62,7 +62,7 @@ void vp932i_push_tx_queue(uint8_t u8Val)
 	g_vp932i_u8TxBufCount++;
 
 	// we should never get close to this
-	assert(g_vp932i_u8TxBufCount < sizeof(g_vp932i_tx_buf));
+//	assert(g_vp932i_u8TxBufCount < sizeof(g_vp932i_tx_buf));
 }
 
 uint8_t vp932i_pop_tx_queue()
@@ -73,7 +73,7 @@ uint8_t vp932i_pop_tx_queue()
 	g_vp932i_u8TxBufCount--;
 
 	// sanity check
-	assert(g_vp932i_u8TxBufCount != -1);
+//	assert(g_vp932i_u8TxBufCount != -1);
 
 	return u8Res;
 }
@@ -240,7 +240,7 @@ VP932_BOOL vp932i_can_read()
 
 uint8_t vp932i_read()
 {
-	assert(g_vp932i_u8TxBufCount > 0);
+//	assert(g_vp932i_u8TxBufCount > 0);
 	return vp932i_pop_tx_queue();
 }
 

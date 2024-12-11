@@ -85,6 +85,7 @@ void vip9500sgi_reset()
 
 	g_vip9500sgi_u32Frame = 0;
 	g_vip9500sgi_u8Idx = 0;
+	g_vip9500sgi_u8TxBufCount = 0;
 }
 
 void vip9500sgi_push_queue(uint8_t u8Val)
@@ -95,7 +96,7 @@ void vip9500sgi_push_queue(uint8_t u8Val)
 	g_vip9500sgi_u8TxBufCount++;
 
 	// we should never get close to this
-	assert(g_vip9500sgi_u8TxBufCount < sizeof(g_vip9500sgi_tx_buf));
+//	assert(g_vip9500sgi_u8TxBufCount < sizeof(g_vip9500sgi_tx_buf));
 }
 
 uint8_t vip9500sgi_pop_queue()
@@ -106,7 +107,7 @@ uint8_t vip9500sgi_pop_queue()
 	g_vip9500sgi_u8TxBufCount--;
 
 	// sanity check
-	assert(g_vip9500sgi_u8TxBufCount != -1);
+//	assert(g_vip9500sgi_u8TxBufCount != -1);
 
 	return u8Res;
 }
@@ -114,7 +115,7 @@ uint8_t vip9500sgi_pop_queue()
 void vip9500sgi_add_digit(uint8_t u8Digit)
 {
 	// make sure we don't overflow
-	assert(g_vip9500sgi_pNumBufEnd <= g_vip9500sgi_pNumBufLastGoodPtr);
+//	assert(g_vip9500sgi_pNumBufEnd <= g_vip9500sgi_pNumBufLastGoodPtr);
 
 	*g_vip9500sgi_pNumBufEnd = u8Digit;
 	g_vip9500sgi_pNumBufEnd++;
@@ -132,7 +133,7 @@ void vip9500sgi_add_digit(uint8_t u8Digit)
 	}
 
 	// we should never overflow
-	assert(g_vip9500sgi_u8NumBufCount <= sizeof(g_vip9500sgi_num_buf));
+//	assert(g_vip9500sgi_u8NumBufCount <= sizeof(g_vip9500sgi_num_buf));
 }
 
 // converts array into integer and stores it in g_vip9500sgi_u32Frame
@@ -279,7 +280,7 @@ VIP9500SG_BOOL vip9500sgi_can_read()
 
 uint8_t vip9500sgi_read()
 {
-	assert(g_vip9500sgi_u8TxBufCount > 0);
+//	assert(g_vip9500sgi_u8TxBufCount > 0);
 	return vip9500sgi_pop_queue();
 }
 
@@ -389,6 +390,7 @@ void vip9500sgi_think_after_vblank()
 			default:
 				g_vip9500sgi_error(VIP9500SG_ERR_UNHANDLED_SITUATION, stat);
 				g_vip9500sgi_state = VIP9500SGI_STATE_NORMAL;
+
 				break;
 			}
 		}

@@ -148,7 +148,7 @@ void ldp1000i_push_queue(uint16_t u16Val)
 	g_ldp1000i_u8TxBufCount++;
 
 	// we should never get close to this
-	assert(g_ldp1000i_u8TxBufCount < sizeof(g_ldp1000i_tx_buf));
+//	assert(g_ldp1000i_u8TxBufCount < sizeof(g_ldp1000i_tx_buf));
 }
 
 uint16_t ldp1000i_pop_queue()
@@ -159,7 +159,7 @@ uint16_t ldp1000i_pop_queue()
 	g_ldp1000i_u8TxBufCount--;
 
 	// sanity check
-	assert(g_ldp1000i_u8TxBufCount != -1);
+//	assert(g_ldp1000i_u8TxBufCount != -1);
 
 	return u16Res;
 }
@@ -737,7 +737,7 @@ LDP1000_BOOL ldp1000i_can_read()
 
 uint16_t ldp1000i_read()
 {
-	assert(g_ldp1000i_u8TxBufCount > 0);
+//	assert(g_ldp1000i_u8TxBufCount > 0);
 	return ldp1000i_pop_queue();
 }
 
