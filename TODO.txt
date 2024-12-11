@@ -1,0 +1,27 @@
+11 Dec 2024:
+I discovered that pr8210-interpreter had undergone some changes between the Daphne and Dexter branches.  I errored on the side of the Dexter changes to avoid breaking any Dexter customers, but some of these changes may not be suitable to go back to Daphne, so more research may be needed.
+
+Relevant commits to research:
+
+PR-8210-interpreter.h
+	SVN VLDP-HW last change:	24 Apr 2014
+	SVN Trunk last change:		17 Nov 2014
+		change_video_squelch was added
+
+21 Aug 2014
+	Daphne SVN: g_pr8210i_change_video_squelch added to void pr8210i_on_vblank() and "case 0xB:	// search"
+	
+7 Oct 2014
+	Daphne SVN: g_pr8210i_change_video_squelch removed.  STAND BY timer changed from 225ms to 112ms
+				Jump triggers that come during seeks are ignored.
+        This change doesn't seem to have made it to Dexter, so consider adding this later once it's safe.
+
+5 Dec 2014
+	SVN -> GIT
+			
+21 Aug 2015
+	Git MASTER: pr8210_tests.cpp were fixed with the 112ms STAND BY change
+
+26 Aug 2017
+	reverted pr8210-interpreter mostly to previous state and fixed disc test 'wobble' in Dexter-only files.
+
