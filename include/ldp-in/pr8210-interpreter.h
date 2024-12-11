@@ -68,9 +68,6 @@ extern PR8210_BOOL (*g_pr8210i_is_player_busy)();
 // enables/disables stand-by pin/LED on PR-8210/A
 extern void (*g_pr8210i_change_standby)(PR8210_BOOL bRaised);
 
-// enables/disables VIDEO SQUELCH' on PR-8210/A
-extern void (*g_pr8210i_change_video_squelch)(PR8210_BOOL bRaised);
-
 typedef enum
 {
 	PR8210_ERR_UNKNOWN_CMD_BYTE,

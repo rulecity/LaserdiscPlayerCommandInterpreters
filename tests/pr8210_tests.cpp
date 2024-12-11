@@ -13,7 +13,6 @@ public:
 	static void change_auto_track_jump(PR8210_BOOL bAutoTrackJumpDisabled) { m_pInstance->ChangeAutoTrackJump(bAutoTrackJumpDisabled != PR8210_FALSE); }
 	static PR8210_BOOL is_player_busy() { return m_pInstance->IsPlayerBusy() ? PR8210_TRUE : PR8210_FALSE; }
 	static void change_standby(PR8210_BOOL bEnabled) { m_pInstance->ChangeStandby(bEnabled != PR8210_FALSE ? true : false); }
-	static void change_video_squelch(PR8210_BOOL bRaised) { m_pInstance->ChangeVideoSquelch(bRaised != PR8210_FALSE ? true : false); }
 	static void OnError(PR8210ErrCode_t code, uint16_t u16Val) { m_pInstance->OnError(code, u16Val); }
 
 	static void setup(IPR8210Test *pInstance)
@@ -28,7 +27,6 @@ public:
 		g_pr8210i_change_auto_track_jump = change_auto_track_jump;
 		g_pr8210i_is_player_busy = is_player_busy;
 		g_pr8210i_change_standby = change_standby;
-		g_pr8210i_change_video_squelch = change_video_squelch;
 		g_pr8210i_error = OnError;
 	}
 
@@ -489,19 +487,19 @@ void test_pr8210_standby_blink_long()
 	pr8210i_write(4 | (0xB << 3));	// SEARCH (B)
 
 	// this should trigger stand by to become disabled
-	for (int i = 0; i < 6; i++)
+	for (int i = 0; i < 11; i++)
 	{
 		pr8210i_on_vblank();
 	}
 
 	// this should trigger stand by to become enabled
-	for (int i = 0; i < 6; i++)
+	for (int i = 0; i < 11; i++)
 	{
 		pr8210i_on_vblank();
 	}
 
 	// this should almost trigger stand by to become disabled (but not quite)
-	for (int i = 0; i < 5; i++)
+	for (int i = 0; i < 10; i++)
 	{
 		pr8210i_on_vblank();
 	}

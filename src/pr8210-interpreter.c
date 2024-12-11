@@ -11,7 +11,6 @@ void (*g_pr8210i_skip)(int8_t i8TracksToSkip) = 0;
 void (*g_pr8210i_change_auto_track_jump)(PR8210_BOOL bAutoTrackJumpEnabled) = 0;
 PR8210_BOOL (*g_pr8210i_is_player_busy)() = 0;
 void (*g_pr8210i_change_standby)(PR8210_BOOL bRaised) = 0;
-void (*g_pr8210i_change_video_squelch)(PR8210_BOOL bRaised) = 0;
 
 /////////////////////////
 
@@ -187,12 +186,7 @@ void pr8210i_on_jmp_trigger_changed(PR8210_BOOL bJmpTrigRaised, PR8210_BOOL bSca
 	if (!bJmpTrigRaised)
 	{
 		int8_t i8TracksToSkip = bScanCRaised ? 1 : -1;	// high means forward, low means backward
-
-		// ignore jump triggers that come in while we are searching
-		if (!g_pr8210i_bPlayerBusy)
-		{
 			g_pr8210i_skip(i8TracksToSkip);
-		}
 	}
 	// else jump trigger has gone high (inactive)
 }
@@ -225,8 +219,8 @@ void pr8210i_on_vblank()
 		// if player is still busy, check to see whether we need to blink the stand by line
 		if (g_pr8210i_is_player_busy())
 		{
-			// if 7 vsyncs have passed (~117ms, close to goal of 112.5ms) blink the stand by
-			if (g_pr8210i_u8VsyncCounter >= 6)
+			// if 13 vsyncs have passed (0-12 index) (~216ms, close to goal of 225ms) blink the stand by
+			if (g_pr8210i_u8VsyncCounter >= 12)
 			{
 				g_pr8210i_bStandByRaised ^= PR8210_TRUE;
 				g_pr8210i_change_standby(g_pr8210i_bStandByRaised);
