@@ -50,7 +50,7 @@ void test_ld700_cmd_pattern1()
 
 	ld700_test_wrapper::setup(&mockLD700);
 
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(3);
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(3);
 
 	ld700i_reset();
@@ -58,12 +58,10 @@ void test_ld700_cmd_pattern1()
 	// prefix
 	ld700i_write(0xA8 + 1);	// error
 
-	ld700i_reset();
+	// implicitly we are testing that the next byte should be an 0xA8 when an error is received
 
-	ld700i_write(0xA8 + 1);
+	ld700i_write(0xA8);
 	ld700i_write(0xA8 ^ 0xFF + 1);	// error
-
-	ld700i_reset();
 
 	ld700i_write(0xA8);
 	ld700i_write(0xA8 ^ 0xFF);
@@ -203,4 +201,28 @@ void test_ld700_search()
 TEST_CASE(ld700_search)
 {
 	test_ld700_search();
+}
+
+void test_ld700_too_many_digits()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	EXPECT_CALL(mockLD700, OnError(LD700_ERR_TOO_MANY_DIGITS, _)).Times(1);
+
+	ld700i_reset();
+
+	ld700_write_helper(1);
+	ld700_write_helper(2);
+	ld700_write_helper(3);
+	ld700_write_helper(4);
+	ld700_write_helper(5);
+	ld700_write_helper(6);
+}
+
+TEST_CASE(ld700_too_many_digits)
+{
+	test_ld700_too_many_digits();
 }

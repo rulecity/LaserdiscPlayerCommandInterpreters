@@ -45,13 +45,13 @@ void ld700i_reset()
 {
 	g_ld700i_u32Frame = 0;
 	g_ld700i_u8FrameIdx = 0;
-	g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;	// default to audio being enabled
-	g_ld700i_u8VsyncCounter = 0;
+//	g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;	// default to audio being enabled
+//	g_ld700i_u8VsyncCounter = 0;
 	g_ld700i_bExtAckActive = LD700_FALSE;
 	g_ld700i_cmd_state = LD700I_CMD_PREFIX;
 	g_ld700i_on_ext_ack_changed(g_ld700i_bExtAckActive);
-	g_ld700i_u8QueuedCmd = 0;
-	g_ld700i_state = LD700I_STATE_NORMAL;
+//	g_ld700i_u8QueuedCmd = 0;	// apparently is not needed
+//	g_ld700i_state = LD700I_STATE_NORMAL;
 }
 
 void ld700i_add_digit(uint8_t u8Digit)
