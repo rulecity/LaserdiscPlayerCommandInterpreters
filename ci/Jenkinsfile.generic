@@ -1,0 +1,35 @@
+pipeline {
+    agent { label "${env.JENKINS_AGENT}" }
+
+        environment {
+                CMAKE_BUILD_TYPE='Release'
+                MAKE_THREADS='4'
+				NAME_CMAKE='ldp_in'
+				NAME_ARTIFACT='ldpIn'
+        }
+
+    stages {
+        stage('Setup') {
+            steps {
+				echo "JENKINS_AGENT_PLATFORM is ${env.JENKINS_AGENT_PLATFORM}"
+				sh 'rm -rf install'
+				sh 'mkdir install'
+				sh "echo Workspace is ${env.WORKSPACE}"
+            }
+        }    
+        stage('Build') {
+            steps {
+            	sh 'rm -rf build'
+                sh 'mkdir build'
+                sh "cd build && cmake ${env.EXTRA_ARGS} -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_INSTALL_PREFIX=${env.WORKSPACE}/install/${NAME_CMAKE} -DCMAKE_SYSTEM_NAME=$CMAKE_SYSTEM_NAME -DCMAKE_C_COMPILER=$CMAKE_C_COMPILER -DCMAKE_CXX_COMPILER=$CMAKE_CXX_COMPILER -DCMAKE_AR=$CMAKE_AR -DCMAKE_RANLIB=$CMAKE_RANLIB .."
+                sh 'cd build && make VERBOSE=1 -j ${MAKE_THREADS} install'
+            }
+        }
+        stage('Package') {
+            steps {
+            	sh "cd install && tar cvfz ../ci/${NAME_ARTIFACT}Install.tar.gz ${NAME_CMAKE}"
+                archiveArtifacts artifacts: "ci/${NAME_ARTIFACT}Install.tar.gz", onlyIfSuccessful: true, fingerprint: true
+            }
+        }
+    }
+}
