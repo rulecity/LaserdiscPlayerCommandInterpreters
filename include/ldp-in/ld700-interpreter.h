@@ -23,6 +23,9 @@ void ld700i_write(uint8_t u8Cmd);
 // call for every vblank (helps us with timing)
 void ld700i_on_vblank();
 
+// call every time you want EXT_ACK' to be a certain value.  The method will track if it's changed and trigger the callback if needed.
+void ld700i_change_ext_ack(LD700_BOOL bActive);
+
 ///////////////////////////////////////////////////////////////////////////////
 
 typedef enum

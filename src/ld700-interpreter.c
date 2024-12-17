@@ -25,35 +25,38 @@ typedef enum
 
 LD700CmdState_t g_ld700i_cmd_state = LD700I_CMD_PREFIX;
 
-// so we know what to do when we get an ENTER command
 typedef enum
 {
 	LD700I_STATE_NORMAL,
 	LD700I_STATE_FRAME,	// in the middle of receiving a frame
+	LD700I_STATE_SEARCHING
 } LD700State_t;
 
-LD700State_t g_ld700i_state = LD700I_STATE_NORMAL;
-
-uint32_t g_ld700i_u32Frame = 0;
-uint8_t g_ld700i_u8FrameIdx = 0;
-uint8_t g_ld700i_u8Audio[2] = { 1, 1 };	// audio starts out enabled
+LD700State_t g_ld700i_state;
+uint32_t g_ld700i_u32Frame;
+uint8_t g_ld700i_u8FrameIdx;
+uint8_t g_ld700i_u8Audio[2];
 uint8_t g_ld700i_u8DupeDetectorVsyncCounter;	// to detect duplicate commands to be dropped
-LD700_BOOL g_ld700i_bExtAckActive = LD700_FALSE;
-uint8_t g_ld700i_u8QueuedCmd = 0;
+uint8_t g_ld700i_u8ExtAckVsyncCounter;	// to manage the EXT_ACK' signal
+LD700_BOOL g_ld700i_bExtAckActive;
+uint8_t g_ld700i_u8QueuedCmd;
 uint8_t g_ld700i_u8LastCmd;	// to drop rapidly repeated commands
 
 void ld700i_reset()
 {
 	g_ld700i_u32Frame = 0;
 	g_ld700i_u8FrameIdx = 0;
-//	g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;	// default to audio being enabled
+	g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;	// default to audio being enabled
 	g_ld700i_u8DupeDetectorVsyncCounter = 0;
-	g_ld700i_bExtAckActive = LD700_FALSE;
+
+	// force callback to be called so our implementor will be in the proper initial state
+	g_ld700i_bExtAckActive = LD700_TRUE;
+	ld700i_change_ext_ack(LD700_FALSE);
+
 	g_ld700i_cmd_state = LD700I_CMD_PREFIX;
-	g_ld700i_on_ext_ack_changed(g_ld700i_bExtAckActive);
-//	g_ld700i_u8QueuedCmd = 0;	// apparently is not needed
-//	g_ld700i_u8LastCmd = 0xFF;
-//	g_ld700i_state = LD700I_STATE_NORMAL;
+	g_ld700i_u8QueuedCmd = 0;	// apparently is not needed
+	g_ld700i_u8LastCmd = 0xFF;
+	g_ld700i_state = LD700I_STATE_NORMAL;
 }
 
 void ld700i_add_digit(uint8_t u8Digit)
@@ -115,6 +118,9 @@ void ld700i_write(uint8_t u8Cmd)
 
 	// this is decremented every vsync.  After 3 vsyncs without receiving a command, a repeated command is interpreted as a new command, not a duplicate.
 	g_ld700i_u8DupeDetectorVsyncCounter = 3;
+
+	// decremented every vsync, but back-to-back commands keep EXT_ACK' active
+	g_ld700i_u8ExtAckVsyncCounter = 3;
 
 	if (bDupeDetected)
 	{
@@ -187,8 +193,55 @@ void ld700i_write(uint8_t u8Cmd)
 
 void ld700i_on_vblank()
 {
+	const LD700Status_t stat = g_ld700i_get_status();
+
 	if (g_ld700i_u8DupeDetectorVsyncCounter != 0)
 	{
 		g_ld700i_u8DupeDetectorVsyncCounter--;
+	}
+
+	// EXT_ACK' is active after a command has been received or if the disc is searching
+	// (TODO: test on real player to see what happens during spin-up)
+	ld700i_change_ext_ack((g_ld700i_u8ExtAckVsyncCounter != 0) || (stat == LD700_SEARCHING ));
+
+	if (g_ld700i_u8ExtAckVsyncCounter != 0)
+	{
+		g_ld700i_u8ExtAckVsyncCounter--;
+	}
+
+	switch (g_ld700i_state)
+	{
+		// nothing to do
+	default:
+		break;
+	// if we are in the middle of a search
+	case LD700I_STATE_SEARCHING:
+		{
+			switch (stat)
+			{
+				// if search is complete
+			case LD700_PAUSED:
+				g_ld700i_state = LD700I_STATE_NORMAL;
+				break;
+				// if we're still working, do nothing
+			case LD700_SEARCHING:
+				break;
+			default:
+				g_ld700i_state = LD700I_STATE_NORMAL;
+				g_ld700i_error(LD700_ERR_UNHANDLED_SITUATION, 0);
+				break;
+			}
+		}
+		break;
+	}
+}
+
+void ld700i_change_ext_ack(LD700_BOOL bActive)
+{
+	// callback gets called every time this value changes
+	if (g_ld700i_bExtAckActive != bActive)
+	{
+		g_ld700i_on_ext_ack_changed(bActive);
+		g_ld700i_bExtAckActive = bActive;
 	}
 }
