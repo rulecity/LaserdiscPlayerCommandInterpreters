@@ -249,7 +249,7 @@ TEST_CASE(ld700_too_many_digits)
 
 //////////////////////////////////////
 
-void test_ld700_repeated_command()
+void test_ld700_repeated_command_ignored()
 {
 	MockLD700Test mockLD700;
 
@@ -269,7 +269,39 @@ void test_ld700_repeated_command()
 	ld700_write_helper(0x17);
 }
 
-TEST_CASE(ld700_repeated_command)
+TEST_CASE(ld700_repeated_command_ignored)
 {
-	test_ld700_repeated_command();
+	test_ld700_repeated_command_ignored();
+}
+
+void test_ld700_repeated_command_accepted()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	EXPECT_CALL(mockLD700, Play()).Times(2);
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+
+	ld700i_reset();
+
+	ld700_write_helper(0x17);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE)).Times(1);
+	ld700i_on_vblank();
+
+	ld700i_on_vblank();
+	ld700i_on_vblank();
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
+	ld700i_on_vblank();
+
+	// this one should get accepted since we've waited long enough
+	ld700_write_helper(0x17);
+}
+
+TEST_CASE(ld700_repeated_command_accepted)
+{
+	test_ld700_repeated_command_accepted();
 }
