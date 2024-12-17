@@ -37,22 +37,22 @@ LD700State_t g_ld700i_state = LD700I_STATE_NORMAL;
 uint32_t g_ld700i_u32Frame = 0;
 uint8_t g_ld700i_u8FrameIdx = 0;
 uint8_t g_ld700i_u8Audio[2] = { 1, 1 };	// audio starts out enabled
-uint8_t g_ld700i_u8VsyncCounter = 0;
+uint8_t g_ld700i_u8DupeDetectorVsyncCounter;	// to detect duplicate commands to be dropped
 LD700_BOOL g_ld700i_bExtAckActive = LD700_FALSE;
 uint8_t g_ld700i_u8QueuedCmd = 0;
-uint8_t g_ld700i_u8LastCmd = 0xFF;	// to drop rapidly repeated commands
+uint8_t g_ld700i_u8LastCmd;	// to drop rapidly repeated commands
 
 void ld700i_reset()
 {
 	g_ld700i_u32Frame = 0;
 	g_ld700i_u8FrameIdx = 0;
 //	g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;	// default to audio being enabled
-//	g_ld700i_u8VsyncCounter = 0;
+	g_ld700i_u8DupeDetectorVsyncCounter = 0;
 	g_ld700i_bExtAckActive = LD700_FALSE;
 	g_ld700i_cmd_state = LD700I_CMD_PREFIX;
 	g_ld700i_on_ext_ack_changed(g_ld700i_bExtAckActive);
 //	g_ld700i_u8QueuedCmd = 0;	// apparently is not needed
-	g_ld700i_u8LastCmd = 0xFF;
+//	g_ld700i_u8LastCmd = 0xFF;
 //	g_ld700i_state = LD700I_STATE_NORMAL;
 }
 
@@ -80,6 +80,8 @@ void ld700i_cmd_error(uint8_t u8Cmd)
 
 void ld700i_write(uint8_t u8Cmd)
 {
+	LD700_BOOL bDupeDetected = LD700_FALSE;
+
 	switch (g_ld700i_cmd_state)
 	{
 	case LD700I_CMD_PREFIX:
@@ -106,7 +108,15 @@ void ld700i_write(uint8_t u8Cmd)
 
 	// rapidly repeated commands are dropped
 	// (a human pressing keys on a remote control will cause commands to rapidly repeat)
-	if (g_ld700i_u8QueuedCmd == g_ld700i_u8LastCmd)
+	if ((g_ld700i_u8QueuedCmd == g_ld700i_u8LastCmd) && (g_ld700i_u8DupeDetectorVsyncCounter != 0))
+	{
+		bDupeDetected = LD700_TRUE;
+	}
+
+	// this is decremented every vsync.  After 3 vsyncs without receiving a command, a repeated command is interpreted as a new command, not a duplicate.
+	g_ld700i_u8DupeDetectorVsyncCounter = 3;
+
+	if (bDupeDetected)
 	{
 		return;
 	}
@@ -157,7 +167,6 @@ void ld700i_write(uint8_t u8Cmd)
 	case 0x42:	// begin search
 		g_ld700i_state = LD700I_STATE_NORMAL;
 		g_ld700i_begin_search(g_ld700i_u32Frame);
-		g_ld700i_u8VsyncCounter = 0;
 		g_ld700i_u32Frame = 0;
 		g_ld700i_u8FrameIdx = 0;
 		break;
@@ -178,5 +187,8 @@ void ld700i_write(uint8_t u8Cmd)
 
 void ld700i_on_vblank()
 {
-	// do we need to do anything here?
+	if (g_ld700i_u8DupeDetectorVsyncCounter != 0)
+	{
+		g_ld700i_u8DupeDetectorVsyncCounter--;
+	}
 }
