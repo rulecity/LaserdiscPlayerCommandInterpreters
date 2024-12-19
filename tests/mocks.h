@@ -217,6 +217,9 @@ public:
 	MOCK_METHOD1(OnExtAckChanged, void(LD700_BOOL));
 
 	MOCK_METHOD2(OnError, void(LD700ErrCode_t, uint8_t));
+
+	// virtual void ChangeAudio(uint8_t u8Channel, LD700_BOOL bActive) = 0;
+	MOCK_METHOD2(ChangeAudio, void(uint8_t,LD700_BOOL));
 };
 
 #endif //LDP_IN_MOCKS_H

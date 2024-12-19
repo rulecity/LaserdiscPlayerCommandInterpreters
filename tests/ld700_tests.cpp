@@ -12,6 +12,7 @@ public:
 	static LD700Status_t get_status() { return m_pInstance->GetStatus(); }
 	static void on_ext_ack_changed(LD700_BOOL bActive) { m_pInstance->OnExtAckChanged(bActive); }
 	static void on_error(LD700ErrCode_t err, uint8_t val) { m_pInstance->OnError(err, val); }
+	static void change_audio(uint8_t u8Channel, LD700_BOOL bActive) { m_pInstance->ChangeAudio(u8Channel, bActive); }
 
 	static void setup(ILD700Test *pInstance)
 	{
@@ -24,6 +25,7 @@ public:
 		g_ld700i_get_status = get_status;
 		g_ld700i_on_ext_ack_changed = on_ext_ack_changed;
 		g_ld700i_error = on_error;
+		g_ld700i_change_audio = change_audio;
 	}
 
 private:
@@ -42,6 +44,22 @@ void ld700_write_helper(uint8_t u8Cmd)
 
 	ld700i_write(u8Cmd);
 	ld700i_write(u8Cmd ^ 0xFF);
+}
+
+// simulate vblanks firing in the middle of sending data
+void ld700_write_helper_with_vblanks(MockLD700Test &mockLD700, LD700_BOOL bExtAckToActivate, uint8_t u8VblankCount, uint8_t u8Cmd)
+{
+	// the way our interpreter is currently written, there's no change in behavior whether the vblanks come between each write or all at once,
+	//  so for clarity, I'm sending them all at once
+	for (int i = 0; i < u8VblankCount - 1; i++)
+	{
+		ld700i_on_vblank();
+	}
+	ld700_write_helper(u8Cmd);
+
+	// on the next vblank, ExtAck should change
+	EXPECT_CALL(mockLD700, OnExtAckChanged(bExtAckToActivate)).Times(1);
+	ld700i_on_vblank();
 }
 
 void test_ld700_cmd_pattern1()
@@ -144,7 +162,7 @@ void test_ld700_playing()
 	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, Play());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PLAYING));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 
 	ld700i_reset();
 
@@ -256,6 +274,7 @@ void test_ld700_repeated_command_ignored()
 	ld700_test_wrapper::setup(&mockLD700);
 
 	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 	EXPECT_CALL(mockLD700, Play()).Times(1);
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
@@ -282,6 +301,7 @@ void test_ld700_repeated_command_accepted()
 
 	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, Play()).Times(2);
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));	// we know how long EXT_ACK' lasts when play command is sent when disc is paused
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
 	ld700i_reset();
@@ -304,4 +324,67 @@ void test_ld700_repeated_command_accepted()
 TEST_CASE(ld700_repeated_command_accepted)
 {
 	test_ld700_repeated_command_accepted();
+}
+
+void test_ld700_tray_ejected()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
+	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
+
+	ld700i_reset();
+
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_TRAY_EJECTED));
+	ld700_write_helper(0x4A);
+
+	// EXT_ACK' should not enable because the tray is ejected
+	ld700i_on_vblank();
+}
+
+TEST_CASE(ld700_tray_ejected)
+{
+	test_ld700_tray_ejected();
+}
+
+void test_ld700_boot1()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
+	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
+
+	ld700i_reset();
+
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_STOPPED));
+	ld700_write_helper(0x4A);
+
+	// EXT_ACK' should activate because tray is not ejected
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE)).Times(1);
+	ld700i_on_vblank();
+
+	// there should be 5 vblanks before EXT_ACK' deactives
+	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x5F);
+
+	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 5, 0x02);
+
+	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x5F);
+
+	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 5, 0x04);
+
+	EXPECT_CALL(mockLD700, Play());
+	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x17);
+}
+
+TEST_CASE(ld700_boot1)
+{
+	test_ld700_boot1();
 }
