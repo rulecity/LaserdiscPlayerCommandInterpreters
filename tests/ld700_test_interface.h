@@ -18,6 +18,8 @@ public:
 	virtual void OnExtAckChanged(LD700_BOOL bActive) = 0;
 
 	virtual void OnError(LD700ErrCode_t, uint8_t) = 0;
+
+	virtual void ChangeAudio(uint8_t u8Channel, LD700_BOOL bActive) = 0;
 };
 
 #endif //LDP_IN_LD700_TEST_INTERFACE_H
