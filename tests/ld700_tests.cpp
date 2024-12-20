@@ -388,3 +388,59 @@ TEST_CASE(ld700_boot1)
 {
 	test_ld700_boot1();
 }
+
+void test_ld700_boot2()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+
+	// NOTE: For this test, the disc starts out playing (this is from a logic analyzer capture)
+
+	ld700i_reset();
+
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PLAYING));
+
+	// EXT_ACK' is already inactive and sending this command won't change that
+	ld700_write_helper(0x5F);
+
+	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 2, 0x06);	// seen on real hardware
+
+	EXPECT_CALL(mockLD700, Pause());
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
+	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 3, 0x18);
+
+	// on logic analyzer capture, there was a gap here that I am filling with vblanks to match what happened in the capture
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
+	ld700i_on_vblank();
+	ld700i_on_vblank();
+	ld700i_on_vblank();
+
+	// EXT_ACK' is already inactive and sending this command won't change that
+	ld700_write_helper(0x5F);
+
+	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 3, 0x03);
+
+	ld700i_on_vblank();
+	ld700i_on_vblank();
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
+	ld700i_on_vblank();
+
+	// EXT_ACK' is already inactive and sending this command won't change that
+	ld700_write_helper(0x5F);
+
+	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 3, 0x05);
+
+	ld700i_on_vblank();
+	ld700i_on_vblank();
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
+	ld700i_on_vblank();
+}
+
+TEST_CASE(ld700_boot2)
+{
+	test_ld700_boot2();
+}
