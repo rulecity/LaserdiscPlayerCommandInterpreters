@@ -42,7 +42,6 @@ public:
 		ld700_test_wrapper::setup(&mockLD700);
 
 		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-		EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
 		ld700i_reset();
 	}
@@ -95,16 +94,11 @@ void wait_vblanks_for_ext_ack_change(MockLD700Test &mockLD700, LD700_BOOL bExtAc
 	ld700i_on_vblank();
 }
 
-void test_ld700_cmd_pattern1()
+////////////////////////////////////////////////////
+
+TEST_F(LD700Tests, cmd_pattern1)
 {
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(3);
-
-	ld700i_reset();
 
 	// prefix
 	ld700i_write(0xA8 + 1);	// error
@@ -112,7 +106,7 @@ void test_ld700_cmd_pattern1()
 	// implicitly we are testing that the next byte should be an 0xA8 when an error is received
 
 	ld700i_write(0xA8);
-	ld700i_write(0xA8 ^ 0xFF + 1);	// error
+	ld700i_write(0xA9 ^ 0xFF);	// error
 
 	ld700i_write(0xA8);
 	ld700i_write(0xA8 ^ 0xFF);
@@ -121,139 +115,54 @@ void test_ld700_cmd_pattern1()
 	ld700i_write(0);	// error
 }
 
-TEST_CASE(ld700_cmd_pattern1)
+TEST_F(LD700Tests, reject_from_playing)
 {
-	test_ld700_cmd_pattern1();
-}
-
-void ld700_cmd_wait_to_repeat()
-{
-	// so that command can be repeated without being dropped
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-}
-
-void test_ld700_reject_from_playing()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	{
-		InSequence dummy;
-
-		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-		EXPECT_CALL(mockLD700, GetStatus()).WillOnce(Return(LD700_PLAYING));
-		EXPECT_CALL(mockLD700, Stop());
-	}
-
+	EXPECT_CALL(mockLD700, GetStatus()).WillOnce(Return(LD700_PLAYING));
+	EXPECT_CALL(mockLD700, Stop());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-
-	ld700i_reset();
 
 	ld700_write_helper(0x16);	// reject (to stop playing)
 }
 
-TEST_CASE(ld700_reject_from_playing)
+TEST_F(LD700Tests, reject_from_stopped)
 {
-	test_ld700_reject_from_playing();
-}
-
-void test_ld700_reject_from_stopped()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	{
-		InSequence dummy;
-
-		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-		EXPECT_CALL(mockLD700, GetStatus()).WillOnce(Return(LD700_STOPPED));
-		EXPECT_CALL(mockLD700, Eject());
-	}
-
+	EXPECT_CALL(mockLD700, GetStatus()).WillOnce(Return(LD700_STOPPED));
+	EXPECT_CALL(mockLD700, Eject());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-
-	ld700i_reset();
 
 	ld700_write_helper(0x16);	// reject (to stop playing)
 }
 
-TEST_CASE(ld700_reject_from_stopped)
+TEST_F(LD700Tests, playing)
 {
-	test_ld700_reject_from_stopped();
-}
-
-void test_ld700_playing()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, Play());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 
-	ld700i_reset();
-
-	ld700_write_helper(0x17);
-
 	// Observed on logic analyzer capture from real hardware:
 	// About 3ms after the play command is finished transmitting, EXT_ACK' enables and stays enabled for about 49ms (about 3 vsync pulses)
 	// The delay between the command ending and EXT_ACK' activating seems variable (ie it's not always 3ms)
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE)).Times(1);
-	ld700i_on_vblank();
-
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700i_on_vblank();
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x17);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-TEST_CASE(ld700_playing)
+TEST_F(LD700Tests, pause)
 {
-	test_ld700_playing();
-}
-
-void test_ld700_pause()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
 	EXPECT_CALL(mockLD700, Pause());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PLAYING));
 
-	ld700i_reset();
-
-	ld700_write_helper(0x18);
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x18);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-TEST_CASE(ld700_pause)
+TEST_F(LD700Tests, search)
 {
-	test_ld700_pause();
-}
+	// This test ignores vblank and is more basic.
+	// We have other tests that tests searching using vblank.
 
-void test_ld700_search()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	{
-		InSequence dummy;
-
-		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-		EXPECT_CALL(mockLD700, BeginSearch(12345));
-	}
-
-	ld700i_reset();
+	EXPECT_CALL(mockLD700, BeginSearch(12345));
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
 	// frame/time
 	ld700_write_helper(0x41);
@@ -269,23 +178,11 @@ void test_ld700_search()
 	ld700_write_helper(0x42);
 }
 
-TEST_CASE(ld700_search)
+TEST_F(LD700Tests, search_after_disc_flip)
 {
-	test_ld700_search();
-}
-
-void test_ld700_search_after_disc_flip()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE));
 	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE));
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
-
-	ld700i_reset();
 
 	// NOTE: For this logic analyzer capture, commands are spaced out enough that EXT_ACK' deactivates before next command
 
@@ -316,21 +213,9 @@ void test_ld700_search_after_disc_flip()
 	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x42);
 }
 
-TEST_CASE(ld700_search_after_disc_flip)
+TEST_F(LD700Tests, too_many_digits)
 {
-	test_ld700_search_after_disc_flip();
-}
-
-void test_ld700_too_many_digits()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, OnError(LD700_ERR_TOO_MANY_DIGITS, _)).Times(1);
-
-	ld700i_reset();
 
 	ld700_write_helper(1);
 	ld700_write_helper(2);
@@ -340,25 +225,11 @@ void test_ld700_too_many_digits()
 	ld700_write_helper(6);
 }
 
-TEST_CASE(ld700_too_many_digits)
+TEST_F(LD700Tests, repeated_command_ignored)
 {
-	test_ld700_too_many_digits();
-}
-
-//////////////////////////////////////
-
-void test_ld700_repeated_command_ignored()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 	EXPECT_CALL(mockLD700, Play()).Times(1);
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-
-	ld700i_reset();
 
 	ld700_write_helper(0x17);
 
@@ -368,56 +239,24 @@ void test_ld700_repeated_command_ignored()
 	ld700_write_helper(0x17);
 }
 
-TEST_CASE(ld700_repeated_command_ignored)
+TEST_F(LD700Tests, repeated_command_accepted)
 {
-	test_ld700_repeated_command_ignored();
-}
-
-void test_ld700_repeated_command_accepted()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, Play()).Times(2);
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));	// we know how long EXT_ACK' lasts when play command is sent when disc is paused
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
-	ld700i_reset();
-
-	ld700_write_helper(0x17);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE)).Times(1);
-	ld700i_on_vblank();
-
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700i_on_vblank();
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x17);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 
 	// this one should get accepted since we've waited long enough
 	ld700_write_helper(0x17);
 }
 
-TEST_CASE(ld700_repeated_command_accepted)
+TEST_F(LD700Tests, tray_ejected)
 {
-	test_ld700_repeated_command_accepted();
-}
-
-void test_ld700_tray_ejected()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
 	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
-
-	ld700i_reset();
 
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_TRAY_EJECTED));
 	ld700_write_helper(0x4A);
@@ -426,12 +265,7 @@ void test_ld700_tray_ejected()
 	ld700i_on_vblank();
 }
 
-TEST_CASE(ld700_tray_ejected)
-{
-	test_ld700_tray_ejected();
-}
-
-TEST_F(LD700Tests, EnableLeft)
+TEST_F(LD700Tests, enable_left)
 {
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
@@ -440,7 +274,7 @@ TEST_F(LD700Tests, EnableLeft)
 	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-TEST_F(LD700Tests, EnableRight)
+TEST_F(LD700Tests, enable_right)
 {
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
@@ -449,56 +283,29 @@ TEST_F(LD700Tests, EnableRight)
 	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-void test_ld700_boot1()
+TEST_F(LD700Tests, boot1)
 {
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
 	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
-
-	ld700i_reset();
-
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_STOPPED));
 
 	// EXT_ACK' should activate because tray is not ejected
 	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x4A);
 
-	// there should be 5 vblanks before EXT_ACK' deactives
 	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x5F);
-
 	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 5, 0x02);
-
 	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x5F);
-
 	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 5, 0x04);
 
 	EXPECT_CALL(mockLD700, Play());
 	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x17);
 }
 
-TEST_CASE(ld700_boot1)
+TEST_F(LD700Tests, boot2)
 {
-	test_ld700_boot1();
-}
-
-void test_ld700_boot2()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-
-	// NOTE: For this test, the disc starts out playing (this is from a logic analyzer capture)
-
-	ld700i_reset();
-
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PLAYING));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PLAYING)); // NOTE: For this test, the disc starts out playing (this is from a logic analyzer capture)
 
 	// EXT_ACK' is already inactive and sending this command won't change that
 	ld700_write_helper(0x5F);
@@ -508,10 +315,9 @@ void test_ld700_boot2()
 	EXPECT_CALL(mockLD700, Pause());
 	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
 	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 3, 0x18);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 1);
 
 	// on logic analyzer capture, there was a gap here that I am filling with vblanks to match what happened in the capture
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700i_on_vblank();
 	ld700i_on_vblank();
 	ld700i_on_vblank();
 
@@ -528,47 +334,26 @@ void test_ld700_boot2()
 	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-TEST_CASE(ld700_boot2)
+TEST_F(LD700Tests, disc_searching)
 {
-	test_ld700_boot2();
-}
-
-//////////////////////////////
-
-void test_ld700_disc_searching_or_spinning_up()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-	ld700i_reset();
-
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_SEARCHING));
 
 	// EXT_ACK' should enable
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE));
-	ld700i_on_vblank();
-
-	// make it easy to troubleshoot problems
-	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-	ld700i_reset();
-
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_SPINNING_UP));
-
-	// EXT_ACK' should enable
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE));
-	ld700i_on_vblank();
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_TRUE, 1);
 
 	// make it easy to troubleshoot problems
 	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 }
 
-TEST_CASE(ld700_disc_searching_or_spinning_up)
+TEST_F(LD700Tests, disc_spinning_up)
 {
-	test_ld700_disc_searching_or_spinning_up();
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_SPINNING_UP));
+
+	// EXT_ACK' should enable
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_TRUE, 1);
+
+	// make it easy to troubleshoot problems
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 }
