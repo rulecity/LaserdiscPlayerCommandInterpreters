@@ -241,6 +241,15 @@ void ld700i_write(uint8_t u8Cmd)
 			// not supported, but we will control EXT_ACK'
 			u8NewExtAckVsyncCounter = 5;	// observed on real hardware
 			break;
+		case 0x03:	// enable video
+		case 0x05:	// enable audio
+			// not supported, but we will control EXT_ACK'
+			u8NewExtAckVsyncCounter = 3;	// observed on real hardware
+			break;
+		case 0x06:	// disable character generator display
+			// not supported, but we will control EXT_ACK'
+			u8NewExtAckVsyncCounter = 2;	// observed on real hardware
+			break;
 		}
 
 		g_ld700i_state = LD700I_STATE_NORMAL;
