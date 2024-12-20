@@ -338,7 +338,6 @@ TEST_F(LD700Tests, disc_searching)
 
 	// make it easy to troubleshoot problems
 	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 }
 
 TEST_F(LD700Tests, disc_spinning_up)
@@ -350,5 +349,4 @@ TEST_F(LD700Tests, disc_spinning_up)
 
 	// make it easy to troubleshoot problems
 	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 }
