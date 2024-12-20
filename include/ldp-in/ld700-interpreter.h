@@ -54,8 +54,8 @@ extern void (*g_ld700i_step)(int8_t i8TracksToStep);
 // begins searching to a frame (non-blocking, should return immediately).
 extern void (*g_ld700i_begin_search)(uint32_t uFrameNumber);
 
-// enables/disables left or right audio channels
-extern void (*g_ld700i_change_audio)(uint8_t uChannel, LD700_BOOL bEnable);
+// enables/disables left/right audio channels
+extern void (*g_ld700i_change_audio)(LD700_BOOL bEnableLeft, LD700_BOOL bEnableRight);
 
 // returns current status of laserdisc player (playing, paused, etc..)
 extern LD700Status_t (*g_ld700i_get_status)();
