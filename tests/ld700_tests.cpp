@@ -34,6 +34,22 @@ private:
 
 ILD700Test *ld700_test_wrapper::m_pInstance = 0;
 
+class LD700Tests : public ::testing::Test
+{
+public:
+	void SetUp() override
+	{
+		ld700_test_wrapper::setup(&mockLD700);
+
+		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
+		EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+
+		ld700i_reset();
+	}
+protected:
+	MockLD700Test mockLD700;
+};
+
 /////////////////////////////////////////////////////////////////
 
 void ld700_write_helper(uint8_t u8Cmd)
@@ -413,6 +429,24 @@ void test_ld700_tray_ejected()
 TEST_CASE(ld700_tray_ejected)
 {
 	test_ld700_tray_ejected();
+}
+
+TEST_F(LD700Tests, EnableLeft)
+{
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
+	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
+	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_FALSE)).Times(1);
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x4B);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
+}
+
+TEST_F(LD700Tests, EnableRight)
+{
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
+	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
+	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_FALSE)).Times(1);
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x49);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
 void test_ld700_boot1()
