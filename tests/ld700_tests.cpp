@@ -265,7 +265,7 @@ TEST_F(LD700Tests, tray_ejected)
 	ld700i_on_vblank();
 }
 
-TEST_F(LD700Tests, EnableLeft)
+TEST_F(LD700Tests, enable_left)
 {
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
@@ -274,7 +274,7 @@ TEST_F(LD700Tests, EnableLeft)
 	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-TEST_F(LD700Tests, EnableRight)
+TEST_F(LD700Tests, enable_right)
 {
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
@@ -283,19 +283,11 @@ TEST_F(LD700Tests, EnableRight)
 	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-void test_ld700_boot1()
+TEST_F(LD700Tests, boot1)
 {
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
 	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
-
-	ld700i_reset();
-
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_STOPPED));
 
 	// EXT_ACK' should activate because tray is not ejected
@@ -310,25 +302,10 @@ void test_ld700_boot1()
 	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x17);
 }
 
-TEST_CASE(ld700_boot1)
+TEST_F(LD700Tests, boot2)
 {
-	test_ld700_boot1();
-}
-
-void test_ld700_boot2()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-
-	// NOTE: For this test, the disc starts out playing (this is from a logic analyzer capture)
-
-	ld700i_reset();
-
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PLAYING));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PLAYING)); // NOTE: For this test, the disc starts out playing (this is from a logic analyzer capture)
 
 	// EXT_ACK' is already inactive and sending this command won't change that
 	ld700_write_helper(0x5F);
@@ -338,10 +315,9 @@ void test_ld700_boot2()
 	EXPECT_CALL(mockLD700, Pause());
 	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
 	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 3, 0x18);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 1);
 
 	// on logic analyzer capture, there was a gap here that I am filling with vblanks to match what happened in the capture
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700i_on_vblank();
 	ld700i_on_vblank();
 	ld700i_on_vblank();
 
@@ -358,47 +334,26 @@ void test_ld700_boot2()
 	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-TEST_CASE(ld700_boot2)
+TEST_F(LD700Tests, disc_searching)
 {
-	test_ld700_boot2();
-}
-
-//////////////////////////////
-
-void test_ld700_disc_searching_or_spinning_up()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-	ld700i_reset();
-
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_SEARCHING));
 
 	// EXT_ACK' should enable
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE));
-	ld700i_on_vblank();
-
-	// make it easy to troubleshoot problems
-	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-	ld700i_reset();
-
-	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_SPINNING_UP));
-
-	// EXT_ACK' should enable
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE));
-	ld700i_on_vblank();
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_TRUE, 1);
 
 	// make it easy to troubleshoot problems
 	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 }
 
-TEST_CASE(ld700_disc_searching_or_spinning_up)
+TEST_F(LD700Tests, disc_spinning_up)
 {
-	test_ld700_disc_searching_or_spinning_up();
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_SPINNING_UP));
+
+	// EXT_ACK' should enable
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_TRUE, 1);
+
+	// make it easy to troubleshoot problems
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 }
