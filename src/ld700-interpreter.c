@@ -149,6 +149,7 @@ void ld700i_write(uint8_t u8Cmd)
 		case 0x8:
 		case 0x9:	// 9
 			ld700i_add_digit(g_ld700i_u8QueuedCmd);
+			u8NewExtAckVsyncCounter = 4;	// observed on real hardware when disc was paused. I also saw 2, 3, and 5 but 4 seems to match Halcyon's cadence so I'll choose 4.
 			break;
 		case 0x16:	// reject
 			{
@@ -183,6 +184,7 @@ void ld700i_write(uint8_t u8Cmd)
 			break;
 		case 0x41:	// prepare to enter frame number
 			g_ld700i_state = LD700I_STATE_FRAME;
+			u8NewExtAckVsyncCounter = 4;	// observed on real hardware when disc was paused. I also saw 5, but I'll choose 4 for lower latency.
 			break;
 		case 0x42:	// begin search
 			g_ld700i_state = LD700I_STATE_NORMAL;
@@ -275,9 +277,8 @@ void ld700i_on_vblank()
 		g_ld700i_u8DupeDetectorVsyncCounter--;
 	}
 
-	// EXT_ACK' is active after a command has been received or if the disc is searching
-	// (TODO: test on real player to see what happens during spin-up)
-	ld700i_change_ext_ack((g_ld700i_u8ExtAckVsyncCounter != 0) || (stat == LD700_SEARCHING ));
+	// EXT_ACK' is active after a command has been received or if the disc is searching/spinning-up
+	ld700i_change_ext_ack((g_ld700i_u8ExtAckVsyncCounter != 0) || (stat == LD700_SEARCHING) || (stat == LD700_SPINNING_UP));
 
 	if (g_ld700i_u8ExtAckVsyncCounter != 0)
 	{

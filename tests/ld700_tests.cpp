@@ -46,18 +46,35 @@ void ld700_write_helper(uint8_t u8Cmd)
 	ld700i_write(u8Cmd ^ 0xFF);
 }
 
-// simulate vblanks firing in the middle of sending data
-void ld700_write_helper_with_vblanks(MockLD700Test &mockLD700, LD700_BOOL bExtAckToActivate, uint8_t u8VblankCount, uint8_t u8Cmd)
+// when the number of vblanks doesn't matter that much and 1 is as good as any
+void ld700_write_helper_with_vblank(MockLD700Test &mockLD700, LD700_BOOL bExtAckToActivate, uint8_t u8Cmd)
 {
-	// the way our interpreter is currently written, there's no change in behavior whether the vblanks come between each write or all at once,
-	//  so for clarity, I'm sending them all at once
-	for (int i = 0; i < u8VblankCount - 1; i++)
-	{
-		ld700i_on_vblank();
-	}
 	ld700_write_helper(u8Cmd);
 
 	// on the next vblank, ExtAck should change
+	EXPECT_CALL(mockLD700, OnExtAckChanged(bExtAckToActivate)).Times(1);
+	ld700i_on_vblank();
+}
+
+// simulate vblanks firing in the middle of sending data
+void ld700_write_helper_with_vblanks(MockLD700Test &mockLD700, LD700_BOOL bExtAckToActivate, size_t uVblankCountBeforeChange, uint8_t u8Cmd)
+{
+	// the way our interpreter is currently written, there's no change in behavior whether the vblanks come between each write or all at once,
+	//  so for clarity, I'm sending them all at once
+	for (int i = 0; i < uVblankCountBeforeChange - 1; i++)
+	{
+		ld700i_on_vblank();
+	}
+	ld700_write_helper_with_vblank(mockLD700, bExtAckToActivate, u8Cmd);
+}
+
+// wait N number of vblanks, where EXT_ACK' changes on the last vblank
+void wait_vblanks_for_ext_ack_change(MockLD700Test &mockLD700, LD700_BOOL bExtAckToActivate, size_t uVblankCount)
+{
+	for (int i = 0; i < uVblankCount - 1; i++)
+	{
+		ld700i_on_vblank();
+	}
 	EXPECT_CALL(mockLD700, OnExtAckChanged(bExtAckToActivate)).Times(1);
 	ld700i_on_vblank();
 }
@@ -241,6 +258,53 @@ TEST_CASE(ld700_search)
 	test_ld700_search();
 }
 
+void test_ld700_search_after_disc_flip()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE));
+	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
+
+	ld700i_reset();
+
+	// NOTE: For this logic analyzer capture, commands are spaced out enough that EXT_ACK' deactivates before next command
+
+	// a lot of Halcyon search commands start with this for some reason
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x4A);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);		// logic analyzer capture shows EXT_ACK' lasting 3 vblanks if disc is paused and 4A command is sent
+
+	// frame/time
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x41);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 4);
+
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 4);
+
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 1);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 4);
+
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 7);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 4);
+
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 2);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 4);
+
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 1);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 4);
+
+	EXPECT_CALL(mockLD700, BeginSearch(1721));
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x42);
+}
+
+TEST_CASE(ld700_search_after_disc_flip)
+{
+	test_ld700_search_after_disc_flip();
+}
+
 void test_ld700_too_many_digits()
 {
 	MockLD700Test mockLD700;
@@ -365,11 +429,9 @@ void test_ld700_boot1()
 	ld700i_reset();
 
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_STOPPED));
-	ld700_write_helper(0x4A);
 
 	// EXT_ACK' should activate because tray is not ejected
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE)).Times(1);
-	ld700i_on_vblank();
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x4A);
 
 	// there should be 5 vblanks before EXT_ACK' deactives
 	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x5F);
@@ -423,24 +485,56 @@ void test_ld700_boot2()
 	ld700_write_helper(0x5F);
 
 	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 3, 0x03);
-
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700i_on_vblank();
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 
 	// EXT_ACK' is already inactive and sending this command won't change that
 	ld700_write_helper(0x5F);
 
 	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 3, 0x05);
-
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700i_on_vblank();
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
 TEST_CASE(ld700_boot2)
 {
 	test_ld700_boot2();
+}
+
+//////////////////////////////
+
+void test_ld700_disc_searching_or_spinning_up()
+{
+	MockLD700Test mockLD700;
+
+	ld700_test_wrapper::setup(&mockLD700);
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	ld700i_reset();
+
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_SEARCHING));
+
+	// EXT_ACK' should enable
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE));
+	ld700i_on_vblank();
+
+	// make it easy to troubleshoot problems
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
+	ld700i_reset();
+
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_SPINNING_UP));
+
+	// EXT_ACK' should enable
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE));
+	ld700i_on_vblank();
+
+	// make it easy to troubleshoot problems
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
+}
+
+TEST_CASE(ld700_disc_searching_or_spinning_up)
+{
+	test_ld700_disc_searching_or_spinning_up();
 }
