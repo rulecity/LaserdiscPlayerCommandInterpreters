@@ -94,6 +94,8 @@ void wait_vblanks_for_ext_ack_change(MockLD700Test &mockLD700, LD700_BOOL bExtAc
 	ld700i_on_vblank();
 }
 
+////////////////////////////////////////////////////
+
 TEST_F(LD700Tests, cmd_pattern1)
 {
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(3);
@@ -137,56 +139,30 @@ TEST_F(LD700Tests, playing)
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 
-	ld700_write_helper(0x17);
-
 	// Observed on logic analyzer capture from real hardware:
 	// About 3ms after the play command is finished transmitting, EXT_ACK' enables and stays enabled for about 49ms (about 3 vsync pulses)
 	// The delay between the command ending and EXT_ACK' activating seems variable (ie it's not always 3ms)
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE)).Times(1);
-	ld700i_on_vblank();
-
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700i_on_vblank();
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x17);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-void test_ld700_pause()
+TEST_F(LD700Tests, pause)
 {
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
 	EXPECT_CALL(mockLD700, Pause());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PLAYING));
 
-	ld700i_reset();
-
-	ld700_write_helper(0x18);
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x18);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
 
-TEST_CASE(ld700_pause)
+TEST_F(LD700Tests, search)
 {
-	test_ld700_pause();
-}
+	// This test ignores vblank and is more basic.
+	// We have other tests that tests searching using vblank.
 
-void test_ld700_search()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	{
-		InSequence dummy;
-
-		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-		EXPECT_CALL(mockLD700, BeginSearch(12345));
-	}
-
-	ld700i_reset();
+	EXPECT_CALL(mockLD700, BeginSearch(12345));
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
 	// frame/time
 	ld700_write_helper(0x41);
@@ -202,23 +178,11 @@ void test_ld700_search()
 	ld700_write_helper(0x42);
 }
 
-TEST_CASE(ld700_search)
+TEST_F(LD700Tests, search_after_disc_flip)
 {
-	test_ld700_search();
-}
-
-void test_ld700_search_after_disc_flip()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE));
 	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE));
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
-
-	ld700i_reset();
 
 	// NOTE: For this logic analyzer capture, commands are spaced out enough that EXT_ACK' deactivates before next command
 
@@ -249,21 +213,9 @@ void test_ld700_search_after_disc_flip()
 	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x42);
 }
 
-TEST_CASE(ld700_search_after_disc_flip)
+TEST_F(LD700Tests, too_many_digits)
 {
-	test_ld700_search_after_disc_flip();
-}
-
-void test_ld700_too_many_digits()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, OnError(LD700_ERR_TOO_MANY_DIGITS, _)).Times(1);
-
-	ld700i_reset();
 
 	ld700_write_helper(1);
 	ld700_write_helper(2);
@@ -273,25 +225,11 @@ void test_ld700_too_many_digits()
 	ld700_write_helper(6);
 }
 
-TEST_CASE(ld700_too_many_digits)
+TEST_F(LD700Tests, repeated_command_ignored)
 {
-	test_ld700_too_many_digits();
-}
-
-//////////////////////////////////////
-
-void test_ld700_repeated_command_ignored()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 	EXPECT_CALL(mockLD700, Play()).Times(1);
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-
-	ld700i_reset();
 
 	ld700_write_helper(0x17);
 
@@ -299,11 +237,6 @@ void test_ld700_repeated_command_ignored()
 	ld700_write_helper(0x17);
 	ld700_write_helper(0x17);
 	ld700_write_helper(0x17);
-}
-
-TEST_CASE(ld700_repeated_command_ignored)
-{
-	test_ld700_repeated_command_ignored();
 }
 
 void test_ld700_repeated_command_accepted()
