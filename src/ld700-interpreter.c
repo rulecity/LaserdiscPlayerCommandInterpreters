@@ -192,37 +192,35 @@ void ld700i_write(uint8_t u8Cmd)
 			g_ld700i_u32Frame = 0;
 			g_ld700i_u8FrameIdx = 0;
 			break;
-			/*
-		case 0xD:	// toggle right audio
-			g_ld700i_u8Audio[1] ^= 1;
-			g_ld700i_change_audio(1, g_ld700i_u8Audio[1]);
-			break;
-		case 0xE:	// toggle left audio
-			g_ld700i_u8Audio[0] ^= 1;
-			g_ld700i_change_audio(0, g_ld700i_u8Audio[0]);
-			break;
-			 */
-		case 0x4A:	// enable stereo
-		{
-			const LD700Status_t stat = g_ld700i_get_status();
-
-			if (stat != LD700_TRAY_EJECTED)
-			{
-				if (stat == LD700_STOPPED)
-				{
-					u8NewExtAckVsyncCounter = 5;	// observed on real hardware
-				}
-				// TODO : test/add other states
-			}
-			else
-			{
-				u8NewExtAckVsyncCounter = NO_CHANGE;
-			}
-
-			g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;
-			g_ld700i_change_audio(0, LD700_TRUE);
+		case 0x49:	// enable right
 			g_ld700i_change_audio(1, LD700_TRUE);
-		}
+			g_ld700i_change_audio(0, LD700_FALSE);
+			break;
+		case 0x4A:	// enable stereo
+			{
+				const LD700Status_t stat = g_ld700i_get_status();
+
+				if (stat != LD700_TRAY_EJECTED)
+				{
+					if (stat == LD700_STOPPED)
+					{
+						u8NewExtAckVsyncCounter = 5;	// observed on real hardware
+					}
+					// TODO : test/add other states
+				}
+				else
+				{
+					u8NewExtAckVsyncCounter = NO_CHANGE;
+				}
+
+				g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;
+				g_ld700i_change_audio(0, LD700_TRUE);
+				g_ld700i_change_audio(1, LD700_TRUE);
+			}
+			break;
+		case 0x4B:	// enable left
+			g_ld700i_change_audio(0, LD700_TRUE);
+			g_ld700i_change_audio(1, LD700_FALSE);
 			break;
 		case 0x5F:	// escape
 			g_ld700i_state = LD700I_STATE_ESCAPED;
