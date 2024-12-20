@@ -7,7 +7,7 @@ void (*g_ld700i_stop)() = 0;
 void (*g_ld700i_eject)() = 0;
 void (*g_ld700i_step)(int8_t i8TracksToStep) = 0;
 void (*g_ld700i_begin_search)(uint32_t uFrameNumber) = 0;
-void (*g_ld700i_change_audio)(uint8_t uChannel, LD700_BOOL bEnable) = 0;
+void (*g_ld700i_change_audio)(LD700_BOOL bEnableLeft, LD700_BOOL bEnableRight) = 0;
 void (*g_ld700i_error)(LD700ErrCode_t code, uint8_t u8Val) = 0;
 LD700Status_t (*g_ld700i_get_status)() = 0;
 void (*g_ld700i_on_ext_ack_changed)(LD700_BOOL bActive) = 0;
@@ -193,8 +193,7 @@ void ld700i_write(uint8_t u8Cmd)
 			g_ld700i_u8FrameIdx = 0;
 			break;
 		case 0x49:	// enable right
-			g_ld700i_change_audio(1, LD700_TRUE);
-			g_ld700i_change_audio(0, LD700_FALSE);
+			g_ld700i_change_audio(LD700_FALSE, LD700_TRUE);
 			break;
 		case 0x4A:	// enable stereo
 			{
@@ -214,13 +213,11 @@ void ld700i_write(uint8_t u8Cmd)
 				}
 
 				g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;
-				g_ld700i_change_audio(0, LD700_TRUE);
-				g_ld700i_change_audio(1, LD700_TRUE);
+				g_ld700i_change_audio(LD700_TRUE, LD700_TRUE);
 			}
 			break;
 		case 0x4B:	// enable left
-			g_ld700i_change_audio(0, LD700_TRUE);
-			g_ld700i_change_audio(1, LD700_FALSE);
+			g_ld700i_change_audio(LD700_TRUE, LD700_FALSE);
 			break;
 		case 0x5F:	// escape
 			g_ld700i_state = LD700I_STATE_ESCAPED;

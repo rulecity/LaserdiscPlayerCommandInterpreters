@@ -12,7 +12,7 @@ public:
 	static LD700Status_t get_status() { return m_pInstance->GetStatus(); }
 	static void on_ext_ack_changed(LD700_BOOL bActive) { m_pInstance->OnExtAckChanged(bActive); }
 	static void on_error(LD700ErrCode_t err, uint8_t val) { m_pInstance->OnError(err, val); }
-	static void change_audio(uint8_t u8Channel, LD700_BOOL bActive) { m_pInstance->ChangeAudio(u8Channel, bActive); }
+	static void change_audio(LD700_BOOL bEnableLeft, LD700_BOOL bEnableRight) { m_pInstance->ChangeAudio(bEnableLeft, bEnableRight); }
 
 	static void setup(ILD700Test *pInstance)
 	{
@@ -180,8 +180,7 @@ TEST_F(LD700Tests, search)
 
 TEST_F(LD700Tests, search_after_disc_flip)
 {
-	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE));
-	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE));
+	EXPECT_CALL(mockLD700, ChangeAudio(LD700_TRUE, LD700_TRUE));
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
 
 	// NOTE: For this logic analyzer capture, commands are spaced out enough that EXT_ACK' deactivates before next command
@@ -255,8 +254,7 @@ TEST_F(LD700Tests, repeated_command_accepted)
 TEST_F(LD700Tests, tray_ejected)
 {
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
-	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
+	EXPECT_CALL(mockLD700, ChangeAudio(LD700_TRUE, LD700_TRUE));
 
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_TRAY_EJECTED));
 	ld700_write_helper(0x4A);
@@ -268,8 +266,7 @@ TEST_F(LD700Tests, tray_ejected)
 TEST_F(LD700Tests, enable_left)
 {
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
-	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
-	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_FALSE)).Times(1);
+	EXPECT_CALL(mockLD700, ChangeAudio(LD700_TRUE, LD700_FALSE));
 	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x4B);
 	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
@@ -277,8 +274,7 @@ TEST_F(LD700Tests, enable_left)
 TEST_F(LD700Tests, enable_right)
 {
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
-	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
-	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_FALSE)).Times(1);
+	EXPECT_CALL(mockLD700, ChangeAudio(LD700_FALSE, LD700_TRUE));
 	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x49);
 	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 }
@@ -286,8 +282,7 @@ TEST_F(LD700Tests, enable_right)
 TEST_F(LD700Tests, boot1)
 {
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
-	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
+	EXPECT_CALL(mockLD700, ChangeAudio(LD700_TRUE, LD700_TRUE));
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_STOPPED));
 
 	// EXT_ACK' should activate because tray is not ejected
