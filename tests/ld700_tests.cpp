@@ -239,62 +239,30 @@ TEST_F(LD700Tests, repeated_command_ignored)
 	ld700_write_helper(0x17);
 }
 
-void test_ld700_repeated_command_accepted()
+TEST_F(LD700Tests, repeated_command_accepted)
 {
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, Play()).Times(2);
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));	// we know how long EXT_ACK' lasts when play command is sent when disc is paused
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
-	ld700i_reset();
-
-	ld700_write_helper(0x17);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE)).Times(1);
-	ld700i_on_vblank();
-
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700i_on_vblank();
+	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x17);
+	wait_vblanks_for_ext_ack_change(mockLD700, LD700_FALSE, 3);
 
 	// this one should get accepted since we've waited long enough
 	ld700_write_helper(0x17);
 }
 
-TEST_CASE(ld700_repeated_command_accepted)
+TEST_F(LD700Tests, tray_ejected)
 {
-	test_ld700_repeated_command_accepted();
-}
-
-void test_ld700_tray_ejected()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 	EXPECT_CALL(mockLD700, ChangeAudio(0, LD700_TRUE)).Times(1);
 	EXPECT_CALL(mockLD700, ChangeAudio(1, LD700_TRUE)).Times(1);
-
-	ld700i_reset();
 
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_TRAY_EJECTED));
 	ld700_write_helper(0x4A);
 
 	// EXT_ACK' should not enable because the tray is ejected
 	ld700i_on_vblank();
-}
-
-TEST_CASE(ld700_tray_ejected)
-{
-	test_ld700_tray_ejected();
 }
 
 TEST_F(LD700Tests, EnableLeft)
@@ -333,13 +301,9 @@ void test_ld700_boot1()
 	// EXT_ACK' should activate because tray is not ejected
 	ld700_write_helper_with_vblank(mockLD700, LD700_TRUE, 0x4A);
 
-	// there should be 5 vblanks before EXT_ACK' deactives
 	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x5F);
-
 	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 5, 0x02);
-
 	ld700_write_helper_with_vblanks(mockLD700, LD700_FALSE, 5, 0x5F);
-
 	ld700_write_helper_with_vblanks(mockLD700, LD700_TRUE, 5, 0x04);
 
 	EXPECT_CALL(mockLD700, Play());
