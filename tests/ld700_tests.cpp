@@ -42,7 +42,6 @@ public:
 		ld700_test_wrapper::setup(&mockLD700);
 
 		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-		EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
 		ld700i_reset();
 	}
@@ -95,16 +94,9 @@ void wait_vblanks_for_ext_ack_change(MockLD700Test &mockLD700, LD700_BOOL bExtAc
 	ld700i_on_vblank();
 }
 
-void test_ld700_cmd_pattern1()
+TEST_F(LD700Tests, cmd_pattern1)
 {
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(3);
-
-	ld700i_reset();
 
 	// prefix
 	ld700i_write(0xA8 + 1);	// error
@@ -112,7 +104,7 @@ void test_ld700_cmd_pattern1()
 	// implicitly we are testing that the next byte should be an 0xA8 when an error is received
 
 	ld700i_write(0xA8);
-	ld700i_write(0xA8 ^ 0xFF + 1);	// error
+	ld700i_write(0xA9 ^ 0xFF);	// error
 
 	ld700i_write(0xA8);
 	ld700i_write(0xA8 ^ 0xFF);
@@ -121,83 +113,29 @@ void test_ld700_cmd_pattern1()
 	ld700i_write(0);	// error
 }
 
-TEST_CASE(ld700_cmd_pattern1)
+TEST_F(LD700Tests, reject_from_playing)
 {
-	test_ld700_cmd_pattern1();
-}
-
-void ld700_cmd_wait_to_repeat()
-{
-	// so that command can be repeated without being dropped
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-	ld700i_on_vblank();
-}
-
-void test_ld700_reject_from_playing()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	{
-		InSequence dummy;
-
-		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-		EXPECT_CALL(mockLD700, GetStatus()).WillOnce(Return(LD700_PLAYING));
-		EXPECT_CALL(mockLD700, Stop());
-	}
-
+	EXPECT_CALL(mockLD700, GetStatus()).WillOnce(Return(LD700_PLAYING));
+	EXPECT_CALL(mockLD700, Stop());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-
-	ld700i_reset();
 
 	ld700_write_helper(0x16);	// reject (to stop playing)
 }
 
-TEST_CASE(ld700_reject_from_playing)
+TEST_F(LD700Tests, reject_from_stopped)
 {
-	test_ld700_reject_from_playing();
-}
-
-void test_ld700_reject_from_stopped()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	{
-		InSequence dummy;
-
-		EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
-		EXPECT_CALL(mockLD700, GetStatus()).WillOnce(Return(LD700_STOPPED));
-		EXPECT_CALL(mockLD700, Eject());
-	}
-
+	EXPECT_CALL(mockLD700, GetStatus()).WillOnce(Return(LD700_STOPPED));
+	EXPECT_CALL(mockLD700, Eject());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
-
-	ld700i_reset();
 
 	ld700_write_helper(0x16);	// reject (to stop playing)
 }
 
-TEST_CASE(ld700_reject_from_stopped)
+TEST_F(LD700Tests, playing)
 {
-	test_ld700_reject_from_stopped();
-}
-
-void test_ld700_playing()
-{
-	MockLD700Test mockLD700;
-
-	ld700_test_wrapper::setup(&mockLD700);
-
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE));
 	EXPECT_CALL(mockLD700, Play());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 	EXPECT_CALL(mockLD700, GetStatus()).WillRepeatedly(Return(LD700_PAUSED));
-
-	ld700i_reset();
 
 	ld700_write_helper(0x17);
 
@@ -213,11 +151,6 @@ void test_ld700_playing()
 
 	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
 	ld700i_on_vblank();
-}
-
-TEST_CASE(ld700_playing)
-{
-	test_ld700_playing();
 }
 
 void test_ld700_pause()
