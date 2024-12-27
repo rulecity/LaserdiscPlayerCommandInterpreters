@@ -212,8 +212,6 @@ public:
 
 	MOCK_METHOD1(BeginSearch, void(uint32_t));
 
-	MOCK_METHOD0(GetStatus, LD700Status_t());
-
 	MOCK_METHOD1(OnExtAckChanged, void(LD700_BOOL));
 
 	MOCK_METHOD2(OnError, void(LD700ErrCode_t, uint8_t));
