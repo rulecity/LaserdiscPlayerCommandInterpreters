@@ -14,25 +14,22 @@ typedef enum
 	LD700_TRUE = 1
 } LD700_BOOL;
 
+typedef enum
+{
+	LD700_ERROR, LD700_SEARCHING, LD700_STOPPED, LD700_PLAYING, LD700_PAUSED, LD700_SPINNING_UP, LD700_TRAY_EJECTED
+ }
+LD700Status_t;
+
 // resets all globals to default state
 void ld700i_reset();
 
-// sends control byte (for example, 0xA8 0x17 would be PLAY)
-void ld700i_write(uint8_t u8Cmd);
+// sends control byte (for example, 0xA8)
+void ld700i_write(uint8_t u8Cmd, LD700Status_t status);
 
 // call for every vblank (helps us with timing)
-void ld700i_on_vblank();
-
-// call every time you want EXT_ACK' to be a certain value.  The method will track if it's changed and trigger the callback if needed.
-void ld700i_change_ext_ack(LD700_BOOL bActive);
+void ld700i_on_vblank(LD700Status_t status);
 
 ///////////////////////////////////////////////////////////////////////////////
-
-typedef enum
-{
-   LD700_ERROR, LD700_SEARCHING, LD700_STOPPED, LD700_PLAYING, LD700_PAUSED, LD700_SPINNING_UP, LD700_TRAY_EJECTED
-}
-LD700Status_t;
 
 // CALLBACKS
 
@@ -56,9 +53,6 @@ extern void (*g_ld700i_begin_search)(uint32_t uFrameNumber);
 
 // enables/disables left/right audio channels
 extern void (*g_ld700i_change_audio)(LD700_BOOL bEnableLeft, LD700_BOOL bEnableRight);
-
-// returns current status of laserdisc player (playing, paused, etc..)
-extern LD700Status_t (*g_ld700i_get_status)();
 
 // will get called every time the EXT ACK line changes. This line is active low, so bActive=true means the line has gone low.
 extern void (*g_ld700i_on_ext_ack_changed)(LD700_BOOL bActive);

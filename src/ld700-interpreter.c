@@ -9,7 +9,6 @@ void (*g_ld700i_step)(int8_t i8TracksToStep) = 0;
 void (*g_ld700i_begin_search)(uint32_t uFrameNumber) = 0;
 void (*g_ld700i_change_audio)(LD700_BOOL bEnableLeft, LD700_BOOL bEnableRight) = 0;
 void (*g_ld700i_error)(LD700ErrCode_t code, uint8_t u8Val) = 0;
-LD700Status_t (*g_ld700i_get_status)() = 0;
 void (*g_ld700i_on_ext_ack_changed)(LD700_BOOL bActive) = 0;
 
 /////////////////////////
@@ -42,6 +41,17 @@ uint8_t g_ld700i_u8ExtAckVsyncCounter;	// to manage the EXT_ACK' signal
 LD700_BOOL g_ld700i_bExtAckActive;
 uint8_t g_ld700i_u8QueuedCmd;
 uint8_t g_ld700i_u8LastCmd;	// to drop rapidly repeated commands
+
+// call every time you want EXT_ACK' to be a certain value.  The method will track if it's changed and trigger the callback if needed.
+void ld700i_change_ext_ack(LD700_BOOL bActive)
+{
+	// callback gets called every time this value changes
+	if (g_ld700i_bExtAckActive != bActive)
+	{
+		g_ld700i_on_ext_ack_changed(bActive);
+		g_ld700i_bExtAckActive = bActive;
+	}
+}
 
 void ld700i_reset()
 {
@@ -86,7 +96,7 @@ void ld700i_cmd_error(uint8_t u8Cmd)
 // 0 means something else so we need another distinct value to indicate no change
 #define NO_CHANGE 0xFF
 
-void ld700i_write(uint8_t u8Cmd)
+void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 {
 	LD700_BOOL bDupeDetected = LD700_FALSE;
 	uint8_t u8NewExtAckVsyncCounter = 3;	// default value
@@ -151,30 +161,25 @@ void ld700i_write(uint8_t u8Cmd)
 			ld700i_add_digit(g_ld700i_u8QueuedCmd);
 			u8NewExtAckVsyncCounter = 4;	// observed on real hardware when disc was paused. I also saw 2, 3, and 5 but 4 seems to match Halcyon's cadence so I'll choose 4.
 			break;
-		case 0x16:	// reject
+		case 0x16: // reject
+			if ((status == LD700_PLAYING) || (status == LD700_PAUSED))
 			{
-				const LD700Status_t status = g_ld700i_get_status();
-				if ((status == LD700_PLAYING) || (status == LD700_PAUSED))
-				{
-					g_ld700i_stop();
-				}
-				else if (status == LD700_STOPPED)
-				{
-					g_ld700i_eject();
-				}
-				else
-				{
-					g_ld700i_error(LD700_ERR_UNHANDLED_SITUATION, 0);
-				}
+				g_ld700i_stop();
+			}
+			else if (status == LD700_STOPPED)
+			{
+				g_ld700i_eject();
+			}
+			else
+			{
+				g_ld700i_error(LD700_ERR_UNHANDLED_SITUATION, 0);
 			}
 			break;
 		case 0x17:	// play
+
+			if (status == LD700_STOPPED)
 			{
-				const LD700Status_t status = g_ld700i_get_status();
-				if (status == LD700_STOPPED)
-				{
-					u8NewExtAckVsyncCounter = NO_CHANGE;	// observed on real hardware
-				}
+				u8NewExtAckVsyncCounter = NO_CHANGE; // observed on real hardware
 			}
 
 			g_ld700i_play();
@@ -196,25 +201,21 @@ void ld700i_write(uint8_t u8Cmd)
 			g_ld700i_change_audio(LD700_FALSE, LD700_TRUE);
 			break;
 		case 0x4A:	// enable stereo
+			if (status != LD700_TRAY_EJECTED)
 			{
-				const LD700Status_t stat = g_ld700i_get_status();
-
-				if (stat != LD700_TRAY_EJECTED)
+				if (status == LD700_STOPPED)
 				{
-					if (stat == LD700_STOPPED)
-					{
-						u8NewExtAckVsyncCounter = 5;	// observed on real hardware
-					}
-					// TODO : test/add other states
+					u8NewExtAckVsyncCounter = 5; // observed on real hardware
 				}
-				else
-				{
-					u8NewExtAckVsyncCounter = NO_CHANGE;
-				}
-
-				g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;
-				g_ld700i_change_audio(LD700_TRUE, LD700_TRUE);
+				// TODO : test/add other states
 			}
+			else
+			{
+				u8NewExtAckVsyncCounter = NO_CHANGE;
+			}
+
+			g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;
+			g_ld700i_change_audio(LD700_TRUE, LD700_TRUE);
 			break;
 		case 0x4B:	// enable left
 			g_ld700i_change_audio(LD700_TRUE, LD700_FALSE);
@@ -263,10 +264,8 @@ done:
 	}
 }
 
-void ld700i_on_vblank()
+void ld700i_on_vblank(const LD700Status_t stat)
 {
-	const LD700Status_t stat = g_ld700i_get_status();
-
 	if (g_ld700i_u8DupeDetectorVsyncCounter != 0)
 	{
 		g_ld700i_u8DupeDetectorVsyncCounter--;
@@ -304,15 +303,5 @@ void ld700i_on_vblank()
 			}
 		}
 		break;
-	}
-}
-
-void ld700i_change_ext_ack(LD700_BOOL bActive)
-{
-	// callback gets called every time this value changes
-	if (g_ld700i_bExtAckActive != bActive)
-	{
-		g_ld700i_on_ext_ack_changed(bActive);
-		g_ld700i_bExtAckActive = bActive;
 	}
 }

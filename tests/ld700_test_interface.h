@@ -12,9 +12,6 @@ public:
 	virtual void Eject() = 0;
 	virtual void BeginSearch(uint32_t) = 0;
 
-	virtual LD700Status_t GetStatus() = 0;
-
-	// g_ld700i_on_ext_ack_changed
 	virtual void OnExtAckChanged(LD700_BOOL bActive) = 0;
 
 	virtual void OnError(LD700ErrCode_t, uint8_t) = 0;
