@@ -5,7 +5,7 @@ void (*g_ld700i_play)() = 0;
 void (*g_ld700i_pause)() = 0;
 void (*g_ld700i_stop)() = 0;
 void (*g_ld700i_eject)() = 0;
-void (*g_ld700i_step)(int8_t i8TracksToStep) = 0;
+void (*g_ld700i_step)(LD700_BOOL bBackward) = 0;
 void (*g_ld700i_begin_search)(uint32_t uFrameNumber) = 0;
 void (*g_ld700i_change_audio)(LD700_BOOL bEnableLeft, LD700_BOOL bEnableRight) = 0;
 void (*g_ld700i_error)(LD700ErrCode_t code, uint8_t u8Val) = 0;
@@ -174,6 +174,7 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			{
 				g_ld700i_error(LD700_ERR_UNHANDLED_SITUATION, 0);
 			}
+			u8NewExtAckVsyncCounter = NO_CHANGE;	// I've never seen this command respond with an ACK
 			break;
 		case 0x17:	// play
 
