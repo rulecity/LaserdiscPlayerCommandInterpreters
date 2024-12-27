@@ -45,8 +45,8 @@ extern void (*g_ld700i_stop)();
 // ejects the laserdisc
 extern void (*g_ld700i_eject)();
 
-// steps forward or backward (1 for forward, -1 for backward)
-extern void (*g_ld700i_step)(int8_t i8TracksToStep);
+// steps forward or backward
+extern void (*g_ld700i_step)(LD700_BOOL bBackward);
 
 // begins searching to a frame (non-blocking, should return immediately).
 extern void (*g_ld700i_begin_search)(uint32_t uFrameNumber);

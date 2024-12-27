@@ -119,8 +119,10 @@ TEST_F(LD700Tests, reject_from_playing)
 	m_curStatus = LD700_PLAYING;
 	EXPECT_CALL(mockLD700, Stop());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	EXPECT_CALL(mockLD700, OnExtAckChanged(_)).Times(0);	// reject should not ACK
 
 	ld700_write_helper(0x16);	// reject (to stop playing)
+	ld700i_on_vblank(m_curStatus);
 }
 
 TEST_F(LD700Tests, reject_from_stopped)
@@ -128,8 +130,10 @@ TEST_F(LD700Tests, reject_from_stopped)
 	m_curStatus = LD700_STOPPED;
 	EXPECT_CALL(mockLD700, Eject());
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	EXPECT_CALL(mockLD700, OnExtAckChanged(_)).Times(0);	// reject should not ACK
 
 	ld700_write_helper(0x16);	// reject (to stop playing)
+	ld700i_on_vblank(m_curStatus);
 }
 
 TEST_F(LD700Tests, playing)
