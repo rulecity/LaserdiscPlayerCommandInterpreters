@@ -170,9 +170,13 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			{
 				g_ld700i_eject();
 			}
+			else if (status == LD700_TRAY_EJECTED)
+			{
+				// do nothing because it's redundant to send an eject command when we're alrady ejected
+			}
 			else
 			{
-				g_ld700i_error(LD700_ERR_UNHANDLED_SITUATION, 0);
+				g_ld700i_error(LD700_ERR_UNHANDLED_SITUATION, status);
 			}
 			u8NewExtAckVsyncCounter = NO_CHANGE;	// I've never seen this command respond with an ACK
 			break;
