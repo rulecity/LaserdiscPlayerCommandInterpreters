@@ -253,6 +253,10 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			// not supported, but we will control EXT_ACK'
 			u8NewExtAckVsyncCounter = 2;	// observed on real hardware
 			break;
+		case 0x07:	// enable character generator display
+			// not supported, but we will control EXT_ACK'
+			u8NewExtAckVsyncCounter = NO_CHANGE;	// observed on real hardware (when disc is stopped, so maybe it's different if disc is playing)
+			break;
 		}
 
 		g_ld700i_state = LD700I_STATE_NORMAL;

@@ -293,6 +293,23 @@ TEST_F(LD700Tests, enable_right)
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 }
 
+TEST_F(LD700Tests, enable_text_overlay)
+{
+	m_curStatus = LD700_STOPPED;
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	EXPECT_CALL(mockLD700, OnExtAckChanged(_)).Times(0);	// reject should not ACK
+
+	// make sure EXT_ACK' never changes
+	ld700_write_helper(0x5F);	// escape
+	ld700i_on_vblank(m_curStatus);
+	ld700i_on_vblank(m_curStatus);
+	ld700i_on_vblank(m_curStatus);
+	ld700_write_helper(0x07);	// enable text overlay
+	ld700i_on_vblank(m_curStatus);
+	ld700i_on_vblank(m_curStatus);
+	ld700i_on_vblank(m_curStatus);
+}
+
 TEST_F(LD700Tests, boot1)
 {
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
