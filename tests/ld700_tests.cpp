@@ -368,6 +368,7 @@ TEST_F(LD700Tests, boot1)
 	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 
 	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x04);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
 	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 
@@ -383,6 +384,7 @@ TEST_F(LD700Tests, boot2)
 	// EXT_ACK' is already inactive and sending this command won't change that
 	ld700_write_helper(0x5F);
 	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x06);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
 	// to make it easy to troubleshoot
 	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));

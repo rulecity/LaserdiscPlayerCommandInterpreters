@@ -178,12 +178,6 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			u8NewCmdTimeoutVsyncCounter = NO_CHANGE;	// I've never seen this command respond with an ACK
 			break;
 		case 0x17:	// play
-
-			if (status == LD700_STOPPED)
-			{
-				u8NewCmdTimeoutVsyncCounter = NO_CHANGE; // observed on real hardware
-			}
-
 			g_ld700i_play();
 			break;
 		case 0x18:	// pause
