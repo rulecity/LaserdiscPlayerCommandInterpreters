@@ -35,9 +35,8 @@ typedef enum
 LD700State_t g_ld700i_state;
 uint32_t g_ld700i_u32Frame;
 uint8_t g_ld700i_u8FrameIdx;
-uint8_t g_ld700i_u8Audio[2];
-uint8_t g_ld700i_u8DupeDetectorVsyncCounter;	// to detect duplicate commands to be dropped
-uint8_t g_ld700i_u8ExtAckVsyncCounter;	// to manage the EXT_ACK' signal
+uint8_t g_ld700i_u8CmdTimeoutVsyncCounter;	// to detect duplicate commands to be dropped
+LD700_BOOL g_ld700i_bNewCmdReceived;	// whether we've received a new command (as opposed to a dupe)
 LD700_BOOL g_ld700i_bExtAckActive;
 uint8_t g_ld700i_u8QueuedCmd;
 uint8_t g_ld700i_u8LastCmd;	// to drop rapidly repeated commands
@@ -57,9 +56,8 @@ void ld700i_reset()
 {
 	g_ld700i_u32Frame = 0;
 	g_ld700i_u8FrameIdx = 0;
-	g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;	// default to audio being enabled
-	g_ld700i_u8DupeDetectorVsyncCounter = 0;
-	g_ld700i_u8ExtAckVsyncCounter = 0;
+	g_ld700i_u8CmdTimeoutVsyncCounter = 0;
+	g_ld700i_bNewCmdReceived = LD700_FALSE;
 
 	// force callback to be called so our implementor will be in the proper initial state
 	g_ld700i_bExtAckActive = LD700_TRUE;
@@ -98,23 +96,22 @@ void ld700i_cmd_error(uint8_t u8Cmd)
 
 void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 {
-	LD700_BOOL bDupeDetected = LD700_FALSE;
-	uint8_t u8NewExtAckVsyncCounter = 3;	// default value
+	uint8_t u8NewCmdTimeoutVsyncCounter = 4;	// default value
 
 	switch (g_ld700i_cmd_state)
 	{
 	case LD700I_CMD_PREFIX:
 		if (u8Cmd == 0xA8) g_ld700i_cmd_state++;
 		else ld700i_cmd_error(u8Cmd);
-		return;
+		break;
 	case LD700I_CMD_PREFIX_XOR:
 		if (u8Cmd == 0x57) g_ld700i_cmd_state++;
 		else ld700i_cmd_error(u8Cmd);
-		return;
+		break;
 	case LD700I_CMD:
 		g_ld700i_u8QueuedCmd = u8Cmd;
 		g_ld700i_cmd_state++;
-		return;
+		break;
 	default:	// LD700I_CMD_XOR
 		g_ld700i_cmd_state = LD700I_CMD_PREFIX;
 		if (u8Cmd != (g_ld700i_u8QueuedCmd ^ 0xFF))
@@ -125,20 +122,21 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 		break;
 	}
 
-	// rapidly repeated commands are dropped
-	// (a human pressing keys on a remote control will cause commands to rapidly repeat)
-	if ((g_ld700i_u8QueuedCmd == g_ld700i_u8LastCmd) && (g_ld700i_u8DupeDetectorVsyncCounter != 0))
+	if (g_ld700i_cmd_state != LD700I_CMD_PREFIX)
 	{
-		bDupeDetected = LD700_TRUE;
+		// if new commands come in while our cmd timeout counter is not 0, then we need to hold EXT_ACK' active to properly detect a held remote control button
+		if (g_ld700i_u8CmdTimeoutVsyncCounter != 0) goto done;
+		return;
 	}
 
-	// this is decremented every vsync.  After 3 vsyncs without receiving a command, a repeated command is interpreted as a new command, not a duplicate.
-	g_ld700i_u8DupeDetectorVsyncCounter = 3;
-
-	if (bDupeDetected)
+	// rapidly repeated commands are dropped
+	// (a human pressing keys on a remote control will cause commands to rapidly repeat)
+	if ((g_ld700i_u8QueuedCmd == g_ld700i_u8LastCmd) && (g_ld700i_u8CmdTimeoutVsyncCounter != 0))
 	{
 		goto done;
 	}
+
+	g_ld700i_bNewCmdReceived = LD700_TRUE;
 
 	// if we're receiving a normal command
 	if (g_ld700i_state != LD700I_STATE_ESCAPED)
@@ -159,7 +157,6 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 		case 0x8:
 		case 0x9:	// 9
 			ld700i_add_digit(g_ld700i_u8QueuedCmd);
-			u8NewExtAckVsyncCounter = 4;	// observed on real hardware when disc was paused. I also saw 2, 3, and 5 but 4 seems to match Halcyon's cadence so I'll choose 4.
 			break;
 		case 0x16: // reject
 			if ((status == LD700_PLAYING) || (status == LD700_PAUSED))
@@ -178,13 +175,13 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			{
 				g_ld700i_error(LD700_ERR_UNHANDLED_SITUATION, status);
 			}
-			u8NewExtAckVsyncCounter = NO_CHANGE;	// I've never seen this command respond with an ACK
+			u8NewCmdTimeoutVsyncCounter = NO_CHANGE;	// I've never seen this command respond with an ACK
 			break;
 		case 0x17:	// play
 
 			if (status == LD700_STOPPED)
 			{
-				u8NewExtAckVsyncCounter = NO_CHANGE; // observed on real hardware
+				u8NewCmdTimeoutVsyncCounter = NO_CHANGE; // observed on real hardware
 			}
 
 			g_ld700i_play();
@@ -194,7 +191,6 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			break;
 		case 0x41:	// prepare to enter frame number
 			g_ld700i_state = LD700I_STATE_FRAME;
-			u8NewExtAckVsyncCounter = 4;	// observed on real hardware when disc was paused. I also saw 5, but I'll choose 4 for lower latency.
 			break;
 		case 0x42:	// begin search
 			g_ld700i_state = LD700I_STATE_NORMAL;
@@ -206,20 +202,11 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			g_ld700i_change_audio(LD700_FALSE, LD700_TRUE);
 			break;
 		case 0x4A:	// enable stereo
-			if (status != LD700_TRAY_EJECTED)
+			if (status == LD700_TRAY_EJECTED)
 			{
-				if (status == LD700_STOPPED)
-				{
-					u8NewExtAckVsyncCounter = 5; // observed on real hardware
-				}
-				// TODO : test/add other states
-			}
-			else
-			{
-				u8NewExtAckVsyncCounter = NO_CHANGE;
+				u8NewCmdTimeoutVsyncCounter = NO_CHANGE;
 			}
 
-			g_ld700i_u8Audio[0] = g_ld700i_u8Audio[1] = 1;
 			g_ld700i_change_audio(LD700_TRUE, LD700_TRUE);
 			break;
 		case 0x4B:	// enable left
@@ -227,7 +214,7 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			break;
 		case 0x5F:	// escape
 			g_ld700i_state = LD700I_STATE_ESCAPED;
-			u8NewExtAckVsyncCounter = NO_CHANGE;
+			u8NewCmdTimeoutVsyncCounter = NO_CHANGE;
 			break;
 		}
 	}
@@ -240,22 +227,15 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 			g_ld700i_error(LD700_ERR_UNKNOWN_CMD_BYTE, g_ld700i_u8QueuedCmd);
 			break;
 		case 0x02:	// disable video
-		case 0x04:	// disable audio
-			// not supported, but we will control EXT_ACK'
-			u8NewExtAckVsyncCounter = 5;	// observed on real hardware
-			break;
 		case 0x03:	// enable video
+		case 0x04:	// disable audio
 		case 0x05:	// enable audio
-			// not supported, but we will control EXT_ACK'
-			u8NewExtAckVsyncCounter = 3;	// observed on real hardware
-			break;
 		case 0x06:	// disable character generator display
 			// not supported, but we will control EXT_ACK'
-			u8NewExtAckVsyncCounter = 2;	// observed on real hardware
 			break;
 		case 0x07:	// enable character generator display
 			// not supported, but we will control EXT_ACK'
-			u8NewExtAckVsyncCounter = NO_CHANGE;	// observed on real hardware (when disc is stopped, so maybe it's different if disc is playing)
+			u8NewCmdTimeoutVsyncCounter = NO_CHANGE;	// observed on real hardware (when disc is stopped, so maybe it's different if disc is playing)
 			break;
 		}
 
@@ -267,25 +247,31 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 
 done:
 	// if this value has been set, then we replace the global value
-	if (u8NewExtAckVsyncCounter != NO_CHANGE)
+	if (u8NewCmdTimeoutVsyncCounter != NO_CHANGE)
 	{
-		g_ld700i_u8ExtAckVsyncCounter = u8NewExtAckVsyncCounter;
+		g_ld700i_u8CmdTimeoutVsyncCounter = u8NewCmdTimeoutVsyncCounter;
 	}
 }
 
 void ld700i_on_vblank(const LD700Status_t stat)
 {
-	if (g_ld700i_u8DupeDetectorVsyncCounter != 0)
+	LD700_BOOL bExtAckEnabled = (g_ld700i_u8CmdTimeoutVsyncCounter != 0)
+		|| (stat == LD700_SEARCHING)
+		|| (stat == LD700_SPINNING_UP);
+
+	// when new command comes in, EXT_ACK' pulses high for 1 vsync (overriding other behavior)
+	if (g_ld700i_bNewCmdReceived)
 	{
-		g_ld700i_u8DupeDetectorVsyncCounter--;
+		g_ld700i_bNewCmdReceived = LD700_FALSE;
+		bExtAckEnabled = LD700_FALSE;
 	}
 
 	// EXT_ACK' is active after a command has been received or if the disc is searching/spinning-up
-	ld700i_change_ext_ack((g_ld700i_u8ExtAckVsyncCounter != 0) || (stat == LD700_SEARCHING) || (stat == LD700_SPINNING_UP));
+	ld700i_change_ext_ack(bExtAckEnabled);
 
-	if (g_ld700i_u8ExtAckVsyncCounter != 0)
+	if (g_ld700i_u8CmdTimeoutVsyncCounter != 0)
 	{
-		g_ld700i_u8ExtAckVsyncCounter--;
+		g_ld700i_u8CmdTimeoutVsyncCounter--;
 	}
 
 	switch (g_ld700i_state)
