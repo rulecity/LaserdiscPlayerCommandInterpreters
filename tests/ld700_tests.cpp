@@ -64,6 +64,17 @@ public:
 		ld700i_on_vblank(m_curStatus);
 	}
 
+	// when status change is deferred by 1 vblank
+	void ld700_write_helper_with_2_vblanks(LD700_BOOL bExtAckToActivate, uint8_t u8Cmd)
+	{
+		ld700_write_helper(u8Cmd);
+		ld700i_on_vblank(m_curStatus);
+
+		// on the next vblank, ExtAck should change
+		EXPECT_CALL(mockLD700, OnExtAckChanged(bExtAckToActivate)).Times(1);
+		ld700i_on_vblank(m_curStatus);
+	}
+
 	// simulate vblanks firing in the middle of sending data
 	void ld700_write_helper_with_vblanks(LD700_BOOL bExtAckToActivate, size_t uVblankCountBeforeChange, uint8_t u8Cmd)
 	{
@@ -156,7 +167,11 @@ TEST_F(LD700Tests, playing)
 	// Observed on logic analyzer capture from real hardware:
 	// About 3ms after the play command is finished transmitting, EXT_ACK' enables and stays enabled for about 49ms (about 3 vsync pulses)
 	// The delay between the command ending and EXT_ACK' activating seems variable (ie it's not always 3ms)
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x17);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x17);
+
+	// to make it easy to troubleshoot
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 }
 
@@ -166,7 +181,7 @@ TEST_F(LD700Tests, pause)
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 	m_curStatus = LD700_PLAYING;
 
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x18);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x18);
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 }
 
@@ -200,30 +215,30 @@ TEST_F(LD700Tests, search_after_disc_flip)
 	// NOTE: For this logic analyzer capture, commands are spaced out enough that EXT_ACK' deactivates before next command
 
 	// a lot of Halcyon search commands start with this for some reason
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x4A);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x4A);
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);		// logic analyzer capture shows EXT_ACK' lasting 3 vblanks if disc is paused and 4A command is sent
 
 	// frame/time
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x41);
-	wait_vblanks_for_ext_ack_change(LD700_FALSE, 4);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x41);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
-	ld700_write_helper_with_vblank(LD700_TRUE, 0);
-	wait_vblanks_for_ext_ack_change(LD700_FALSE, 4);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
-	ld700_write_helper_with_vblank(LD700_TRUE, 1);
-	wait_vblanks_for_ext_ack_change(LD700_FALSE, 4);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 1);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
-	ld700_write_helper_with_vblank(LD700_TRUE, 7);
-	wait_vblanks_for_ext_ack_change(LD700_FALSE, 4);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 7);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
-	ld700_write_helper_with_vblank(LD700_TRUE, 2);
-	wait_vblanks_for_ext_ack_change(LD700_FALSE, 4);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 2);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
-	ld700_write_helper_with_vblank(LD700_TRUE, 1);
-	wait_vblanks_for_ext_ack_change(LD700_FALSE, 4);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 1);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
 	EXPECT_CALL(mockLD700, BeginSearch(1721));
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x42);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x42);
 }
 
 TEST_F(LD700Tests, too_many_digits)
@@ -245,11 +260,29 @@ TEST_F(LD700Tests, repeated_command_ignored)
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
 	ld700_write_helper(0x17);
+	ld700i_on_vblank(m_curStatus);	// EXT_ACK' will briefly disable to indicate that a new command was received.  But it's already disabled, so we won't see that for this test.
 
-	// the rest of these should be ignored because they repeat without an acceptable interval in between
-	ld700_write_helper(0x17);
-	ld700_write_helper(0x17);
-	ld700_write_helper(0x17);
+	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_TRUE)).Times(1);
+	ld700i_write(0xA8, m_curStatus);
+	ld700i_on_vblank(m_curStatus);
+
+	// at this point, EXT_ACK' should not change because we are repeating the command before it times out
+
+	EXPECT_CALL(mockLD700, OnExtAckChanged(_)).Times(0);
+	ld700i_write(0xA8 ^ 0xFF, m_curStatus);
+	ld700i_on_vblank(m_curStatus);
+
+	ld700i_write(0x17, m_curStatus);
+	ld700i_on_vblank(m_curStatus);
+
+	ld700i_write(0x17 ^ 0xFF, m_curStatus);
+	ld700i_on_vblank(m_curStatus);
+
+	// here is where EXT_ACK' should finally 'expire'
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 4);	// 4 vblanks is approximately 60ms which is when the expiration takes place
+
+	// to make it easy to troubleshoot
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 }
 
 TEST_F(LD700Tests, repeated_command_accepted)
@@ -258,7 +291,7 @@ TEST_F(LD700Tests, repeated_command_accepted)
 	m_curStatus = LD700_PAUSED;	// we know how long EXT_ACK' lasts when play command is sent when disc is paused
 	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
 
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x17);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x17);
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
 	// this one should get accepted since we've waited long enough
@@ -281,7 +314,7 @@ TEST_F(LD700Tests, enable_left)
 {
 	m_curStatus = LD700_PAUSED;
 	EXPECT_CALL(mockLD700, ChangeAudio(LD700_TRUE, LD700_FALSE));
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x4B);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x4B);
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 }
 
@@ -289,7 +322,7 @@ TEST_F(LD700Tests, enable_right)
 {
 	m_curStatus = LD700_PAUSED;
 	EXPECT_CALL(mockLD700, ChangeAudio(LD700_FALSE, LD700_TRUE));
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x49);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x49);
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 }
 
@@ -317,15 +350,30 @@ TEST_F(LD700Tests, boot1)
 	m_curStatus = LD700_STOPPED;
 
 	// EXT_ACK' should activate because tray is not ejected
-	ld700_write_helper_with_vblank(LD700_TRUE, 0x4A);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x4A);
 
-	ld700_write_helper_with_vblanks(LD700_FALSE, 5, 0x5F);
-	ld700_write_helper_with_vblanks(LD700_TRUE, 5, 0x02);
-	ld700_write_helper_with_vblanks(LD700_FALSE, 5, 0x5F);
-	ld700_write_helper_with_vblanks(LD700_TRUE, 5, 0x04);
+	// to make it easy to troubleshoot
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+
+	ld700_write_helper_with_vblanks(LD700_FALSE, 3, 0x5F);
+
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x02);
+
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+
+	ld700_write_helper_with_vblanks(LD700_FALSE, 3, 0x5F);
+
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
+
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x04);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
+
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 
 	EXPECT_CALL(mockLD700, Play());
-	ld700_write_helper_with_vblanks(LD700_FALSE, 5, 0x17);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x17);
 }
 
 TEST_F(LD700Tests, boot2)
@@ -335,29 +383,31 @@ TEST_F(LD700Tests, boot2)
 
 	// EXT_ACK' is already inactive and sending this command won't change that
 	ld700_write_helper(0x5F);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x06);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
-	ld700_write_helper_with_vblanks(LD700_TRUE, 2, 0x06);	// seen on real hardware
+	// to make it easy to troubleshoot
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 
 	EXPECT_CALL(mockLD700, Pause());
-	EXPECT_CALL(mockLD700, OnExtAckChanged(LD700_FALSE)).Times(1);
-	ld700_write_helper_with_vblanks(LD700_TRUE, 3, 0x18);
-	wait_vblanks_for_ext_ack_change(LD700_FALSE, 1);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x18);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 
-	// on logic analyzer capture, there was a gap here that I am filling with vblanks to match what happened in the capture
-	ld700i_on_vblank(LD700_PLAYING);
-	ld700i_on_vblank(LD700_PLAYING);
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 
 	// EXT_ACK' is already inactive and sending this command won't change that
 	ld700_write_helper(0x5F);
 
-	ld700_write_helper_with_vblanks(LD700_TRUE, 3, 0x03);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x03);
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 
 	// EXT_ACK' is already inactive and sending this command won't change that
 	ld700_write_helper(0x5F);
 
-	ld700_write_helper_with_vblanks(LD700_TRUE, 3, 0x05);
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x05);
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
+	ASSERT_TRUE(Mock::VerifyAndClearExpectations(&mockLD700));
 }
 
 TEST_F(LD700Tests, disc_searching)
