@@ -206,6 +206,9 @@ public:
 
 	MOCK_METHOD0(Pause, void());
 
+	// virtual void Step(LD700_BOOL bStepBackward) = 0;
+	MOCK_METHOD1(Step, void(LD700_BOOL));
+
 	MOCK_METHOD0(Stop, void());
 
 	MOCK_METHOD0(Eject, void());

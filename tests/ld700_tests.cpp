@@ -6,6 +6,7 @@ class ld700_test_wrapper
 public:
 	static void play() { m_pInstance->Play(); }
 	static void pause() { m_pInstance->Pause(); }
+	static void step(LD700_BOOL bStepBackward) { m_pInstance->Step(bStepBackward); }
 	static void stop() { m_pInstance->Stop(); }
 	static void eject() { m_pInstance->Eject(); }
 	static void begin_search(uint32_t u32FrameNum) { m_pInstance->BeginSearch(u32FrameNum); }
@@ -18,6 +19,7 @@ public:
 		m_pInstance = pInstance;
 		g_ld700i_play = play;
 		g_ld700i_pause = pause;
+		g_ld700i_step = step;
 		g_ld700i_stop = stop;
 		g_ld700i_eject = eject;
 		g_ld700i_begin_search = begin_search;
@@ -182,6 +184,26 @@ TEST_F(LD700Tests, pause)
 	m_curStatus = LD700_PLAYING;
 
 	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x18);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
+}
+
+TEST_F(LD700Tests, step_rev)
+{
+	EXPECT_CALL(mockLD700, Step(LD700_TRUE));
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	m_curStatus = LD700_PLAYING;
+
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x50);
+	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
+}
+
+TEST_F(LD700Tests, step_fwd)
+{
+	EXPECT_CALL(mockLD700, Step(LD700_FALSE));
+	EXPECT_CALL(mockLD700, OnError(_, _)).Times(0);
+	m_curStatus = LD700_PLAYING;
+
+	ld700_write_helper_with_2_vblanks(LD700_TRUE, 0x54);
 	wait_vblanks_for_ext_ack_change(LD700_FALSE, 3);
 }
 

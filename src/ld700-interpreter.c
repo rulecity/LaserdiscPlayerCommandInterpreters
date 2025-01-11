@@ -206,6 +206,12 @@ void ld700i_write(uint8_t u8Cmd, const LD700Status_t status)
 		case 0x4B:	// enable left
 			g_ld700i_change_audio(LD700_TRUE, LD700_FALSE);
 			break;
+		case 0x50:	// step reverse
+			g_ld700i_step(LD700_TRUE);
+			break;
+		case 0x54:	// step fwd
+			g_ld700i_step(LD700_FALSE);
+			break;
 		case 0x5F:	// escape
 			g_ld700i_state = LD700I_STATE_ESCAPED;
 			u8NewCmdTimeoutVsyncCounter = NO_CHANGE;
