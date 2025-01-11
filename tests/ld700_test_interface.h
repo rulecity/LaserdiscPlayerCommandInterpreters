@@ -8,6 +8,7 @@ class ILD700Test
 public:
 	virtual void Play() = 0;
 	virtual void Pause() = 0;
+	virtual void Step(LD700_BOOL bStepBackward) = 0;
 	virtual void Stop() = 0;
 	virtual void Eject() = 0;
 	virtual void BeginSearch(uint32_t) = 0;
